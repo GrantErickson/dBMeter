@@ -47,6 +47,8 @@ const liveStartT = ref(null);
 const activeTab = ref(helpSeenInitially ? "meter" : "help");
 const helpFirstRun = ref(!helpSeenInitially);
 const userPaused = ref(false); // true only when the user explicitly pauses
+const starting = ref(false); // true while a mic-start attempt is in flight
+const idlePaused = ref(false); // true when the 1-hour idle timer paused the mic
 
 function closeHelp() {
   helpFirstRun.value = false;
@@ -118,10 +120,19 @@ function buildConfig() {
 
 async function tryStart() {
   userPaused.value = false;
+  idlePaused.value = false; // resuming clears the idle-pause prompt
   if (meter.isRunning.value) return;
-  if (liveSamples.value.length === 0) liveStartT.value = Date.now();
-  const ok = await meter.start(buildConfig(), onSample);
-  if (!ok && liveSamples.value.length === 0) liveStartT.value = null;
+  // Mark the attempt as in-flight in the same tick we clear userPaused, so the
+  // mic gate doesn't flash during the (async) getUserMedia handshake. It only
+  // reappears below if the start actually fails (e.g. permission denied).
+  starting.value = true;
+  try {
+    if (liveSamples.value.length === 0) liveStartT.value = Date.now();
+    const ok = await meter.start(buildConfig(), onSample);
+    if (!ok && liveSamples.value.length === 0) liveStartT.value = null;
+  } finally {
+    starting.value = false;
+  }
 }
 
 function pauseMic() {
@@ -152,6 +163,9 @@ function onVisibility() {
 function checkIdle() {
   if (shouldIdlePause(hiddenSince, Date.now(), meter.isRunning.value)) {
     pauseMic();
+    // Flag it as an automatic pause so we can show a clear resume prompt,
+    // unlike a manual pause which just shows the small ▶ button.
+    idlePaused.value = true;
   }
 }
 
@@ -244,7 +258,21 @@ function clearLive() {
 
 const showGate = computed(
   () =>
-    activeTab.value === "meter" && !meter.isRunning.value && !userPaused.value,
+    activeTab.value === "meter" &&
+    !meter.isRunning.value &&
+    !userPaused.value &&
+    !starting.value,
+);
+
+// Deliberate, persistent prompt shown after the 1-hour idle auto-pause (a
+// manual pause stays out of the way with just the ▶ button). Mutually exclusive
+// with showGate, which requires !userPaused.
+const showIdleResume = computed(
+  () =>
+    activeTab.value === "meter" &&
+    idlePaused.value &&
+    !meter.isRunning.value &&
+    !starting.value,
 );
 </script>
 
@@ -331,6 +359,34 @@ const showGate = computed(
             }}
           </p>
           <button class="gate-btn" @click="tryStart">Enable &amp; start</button>
+        </div>
+      </div>
+
+      <!-- Resume prompt after the 1-hour idle auto-pause -->
+      <div v-if="showIdleResume" class="mic-gate">
+        <div class="gate-card">
+          <svg viewBox="0 0 24 24" width="46" height="46">
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+            />
+            <path
+              d="M10 9.5v5 M14 9.5v5"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            />
+          </svg>
+          <h2>Monitoring paused</h2>
+          <p>
+            The microphone was paused after an hour in the background, to save
+            battery and protect your privacy.
+          </p>
+          <button class="gate-btn" @click="tryStart">Resume monitoring</button>
         </div>
       </div>
     </main>
