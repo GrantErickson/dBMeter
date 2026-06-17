@@ -29,6 +29,15 @@ const tabs = [
     ],
   },
   { key: 'sessions', label: 'Saved', paths: ['M7 4h10v16l-5-3.5L7 20z'] },
+  {
+    key: 'help',
+    label: 'Help',
+    paths: [
+      'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+      'M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3',
+      'M12 17h.01',
+    ],
+  },
 ]
 </script>
 

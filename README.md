@@ -17,6 +17,9 @@ keeps running across orientation changes and tab switches.
 
 ## Features
 
+- **In-app help / guide** that explains the graph, options and calibration. It
+  opens automatically on first launch (with a *Get started* button) and is
+  reachable any time from the **?** on the Graph screen or in any settings header.
 - **Live dB meter** with large colour-coded readout and peak hold; a **Clear**
   button on the Meter screen wipes the graph and peak.
 - **Logarithmic timeline** — the most recent **2 minutes occupy 50%** of the
@@ -112,6 +115,7 @@ src/
     storage.js                 localStorage settings + sessions
   components/
     TabBar.vue                 bottom navigation (Graph · Options · Calibrate · Saved)
+    HelpView.vue               first-run guide + calibration how-to
     MeterView.vue              full-bleed graph + superimposed readout + Clear
     DbGraph.vue                canvas graph (log/linear, colour, overlays)
     ControlsPanel.vue          Options screen settings (via `section` prop)

@@ -12,7 +12,7 @@ const props = defineProps({
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
 })
-const emit = defineEmits(['clear', 'reset-peak'])
+const emit = defineEmits(['clear', 'reset-peak', 'help'])
 
 const dbText = computed(() =>
   Number.isFinite(props.currentDb) ? props.currentDb.toFixed(1) : '--.-'
@@ -80,6 +80,7 @@ const fill = computed(() => {
 
       <!-- Actions (top-right over the graph, both orientations) -->
       <div class="hud-actions">
+        <button class="help-btn" title="Help" @click="emit('help')">?</button>
         <div class="seg compact">
           <button
             :class="{ active: settings.mode === 'log' }"
@@ -183,7 +184,7 @@ const fill = computed(() => {
 .hud-readout {
   display: none; /* shown in landscape */
   position: absolute;
-  top: 8px;
+  top: 20px;
   left: 56px; /* clear of the dB axis labels */
   pointer-events: none;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
@@ -241,6 +242,17 @@ const fill = computed(() => {
   font-size: 12px;
   font-weight: 600;
   min-height: 28px;
+}
+.help-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(20, 26, 43, 0.85);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .hud-foot {

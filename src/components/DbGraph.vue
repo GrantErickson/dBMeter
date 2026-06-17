@@ -26,7 +26,7 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 }
 
-const TIME_MARKS_LOG = [0, 0.5, 1, 2, 5, 10, 15, 20, 25, 30, 45, 60]
+const TIME_MARKS_LOG = [0, 0.5, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60]
 const TIME_MARKS_LIN = [0, 0.5, 1, 1.5, 2]
 
 function fmtAge(min) {

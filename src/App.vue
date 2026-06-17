@@ -16,6 +16,15 @@ import MeterView from './components/MeterView.vue'
 import ControlsPanel from './components/ControlsPanel.vue'
 import CalibrationPanel from './components/CalibrationPanel.vue'
 import SessionsPanel from './components/SessionsPanel.vue'
+import HelpView from './components/HelpView.vue'
+
+const HELP_KEY = 'dbmeter.helpseen.v1'
+let helpSeenInitially = false
+try {
+  helpSeenInitially = !!localStorage.getItem(HELP_KEY)
+} catch {
+  /* storage unavailable */
+}
 
 const settings = reactive(loadSettings())
 const sessions = ref(loadSessions())
@@ -24,8 +33,23 @@ const overlays = ref([]) // [{ id, name, color, startT, samples }]
 const liveSamples = ref([])
 const liveStartT = ref(null)
 
-const activeTab = ref('meter')
+// First launch opens the Help screen; afterwards it goes straight to the graph.
+const activeTab = ref(helpSeenInitially ? 'meter' : 'help')
+const helpFirstRun = ref(!helpSeenInitially)
 const userPaused = ref(false) // true only when the user explicitly pauses
+
+function openHelp() {
+  activeTab.value = 'help'
+}
+function closeHelp() {
+  helpFirstRun.value = false
+  try {
+    localStorage.setItem(HELP_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+  activeTab.value = 'meter'
+}
 
 const meter = useAudioMeter()
 
@@ -158,12 +182,21 @@ const showGate = computed(
         :peak-db="meter.peakDb.value"
         @clear="clearLive"
         @reset-peak="meter.resetPeak()"
+        @help="openHelp"
+      />
+
+      <!-- Help / first-run guide -->
+      <HelpView
+        v-else-if="activeTab === 'help'"
+        :first-run="helpFirstRun"
+        @close="closeHelp"
       />
 
       <!-- Settings screens -->
       <div v-else class="settings-screen">
         <header class="sh">
           <h1>{{ TITLES[activeTab] }}</h1>
+          <button class="sh-help" title="Help" @click="openHelp">?</button>
         </header>
         <div class="sh-body">
           <ControlsPanel
@@ -219,7 +252,12 @@ const showGate = computed(
       </div>
     </main>
 
-    <TabBar v-model="activeTab" :overlay-count="overlays.length" />
+    <!-- Tab bar stays visible everywhere except the first-run welcome guide. -->
+    <TabBar
+      v-if="!(activeTab === 'help' && helpFirstRun)"
+      v-model="activeTab"
+      :overlay-count="overlays.length"
+    />
   </div>
 </template>
 
@@ -244,6 +282,10 @@ const showGate = computed(
 .sh {
   position: sticky;
   top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: linear-gradient(#0f1320 70%, rgba(15, 19, 32, 0));
   padding: calc(var(--safe-t) + 14px) 16px 10px;
   z-index: 2;
@@ -251,6 +293,17 @@ const showGate = computed(
 .sh h1 {
   margin: 0;
   font-size: 22px;
+}
+.sh-help {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
 }
 .sh-body {
   padding: 0 16px;
