@@ -1,0 +1,12 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "*.{css,js,png,svg,ico,json}"]
+  },
+  "globalHeaders": {
+    "Permissions-Policy": "microphone=(self)"
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}

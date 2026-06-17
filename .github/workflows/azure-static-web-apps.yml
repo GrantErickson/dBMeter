@@ -1,0 +1,46 @@
+# Deploys the built Vue app to Azure Static Web Apps.
+#
+# Setup:
+#   1. Create a Static Web App in the Azure Portal (or `az staticwebapp create`).
+#   2. Copy its deployment token into a GitHub secret named
+#      AZURE_STATIC_WEB_APPS_API_TOKEN (Settings -> Secrets and variables ->
+#      Actions). When you create the SWA from a GitHub repo, Azure adds this
+#      secret and a workflow automatically; this file mirrors that setup.
+name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build And Deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: "/"          # app source
+          output_location: "dist"     # Vite build output
+          # api_location left empty - no backend
+
+  close_pull_request:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request
+    steps:
+      - name: Close Pull Request
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close
