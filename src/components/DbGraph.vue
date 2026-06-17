@@ -8,6 +8,7 @@ const props = defineProps({
   liveStartT: { type: Number, default: null },
   overlays: { type: Array, default: () => [] },
   settings: { type: Object, required: true },
+  range: { type: Object, default: null }, // { min, max } effective dB scale
   isRunning: { type: Boolean, default: false },
 })
 
@@ -60,8 +61,8 @@ function draw() {
   plot.h = plot.bottom - plot.top
   if (plot.w <= 0 || plot.h <= 0) return
 
-  const gMin = s.graphMin
-  const gMax = s.maxDb
+  const gMin = props.range ? props.range.min : s.graphMin
+  const gMax = props.range ? props.range.max : s.maxDb
   const range = gMax - gMin || 1
   const yOf = (db) => plot.bottom - ((Math.max(gMin, Math.min(gMax, db)) - gMin) / range) * plot.h
 

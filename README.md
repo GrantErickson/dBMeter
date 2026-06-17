@@ -30,8 +30,12 @@ keeps running across orientation changes and tab switches.
     2-minute window and grows/compresses automatically as the session runs, up
     to the configured length.
   - **Last 2 min** — a plain linear view of the most recent two minutes.
-- **Colour scale** — green near the configured minimum, yellow mid-range, red as
-  values approach the user-set **max**.
+- **Auto mode** (default, until you calibrate) — readings are left uncalibrated
+  (relative) and the graph range auto-scales between the quietest and loudest
+  sounds heard. The numbers aren't true dB, but it's perfect for relative levels.
+  Switch between **Auto** and **Calibrated** on the Calibrate screen.
+- **Colour scale** — green near the low end, yellow mid-range, red near the top
+  of the scale (the user-set **Max** when calibrated, or the auto-fitted range).
 - **Calibration** — one- or two-point calibration (quiet + loud). Capture a raw
   reading, enter the true dB from a reference meter, and the app maps every
   reading onto a real dB scale (`spl = slope·raw + offset`).

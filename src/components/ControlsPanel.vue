@@ -98,17 +98,34 @@ const emit = defineEmits(['toggle-mic'])
       </div>
 
       <h2>Scale &amp; colour</h2>
+      <p v-if="settings.autoMode" class="hint">
+        Auto mode is on — the graph scale follows the quietest and loudest sounds
+        heard. These values apply once you switch to Calibrated mode on the
+        Calibrate screen.
+      </p>
       <div class="row">
         <label>Min (green)</label>
         <div class="inline">
-          <input class="num" type="number" step="1" v-model.number="settings.graphMin" />
+          <input
+            class="num"
+            type="number"
+            step="1"
+            :disabled="settings.autoMode"
+            v-model.number="settings.graphMin"
+          />
           <span class="suffix">dB</span>
         </div>
       </div>
       <div class="row">
         <label>Max (red)</label>
         <div class="inline">
-          <input class="num" type="number" step="1" v-model.number="settings.maxDb" />
+          <input
+            class="num"
+            type="number"
+            step="1"
+            :disabled="settings.autoMode"
+            v-model.number="settings.maxDb"
+          />
           <span class="suffix">dB</span>
         </div>
       </div>

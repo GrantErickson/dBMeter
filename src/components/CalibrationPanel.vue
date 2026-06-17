@@ -14,10 +14,16 @@ const cal = computed(() => computeCalibration(points.value))
 
 const labels = ['Quiet reference', 'Loud reference']
 
+function setAuto(on) {
+  props.settings.autoMode = on
+}
+
 function capture(i) {
   if (!Number.isFinite(props.currentRaw)) return
   // Round to 0.1 to keep stored values tidy.
   points.value[i].raw = Math.round(props.currentRaw * 10) / 10
+  // Capturing a reference means the user is calibrating -> leave Auto mode.
+  props.settings.autoMode = false
 }
 function clearPoint(i) {
   points.value[i].raw = null
@@ -27,10 +33,31 @@ function clearPoint(i) {
 
 <template>
   <div class="panel">
+    <div class="seg mode">
+      <button :class="{ active: settings.autoMode }" @click="setAuto(true)">
+        Auto (relative)
+      </button>
+      <button :class="{ active: !settings.autoMode }" @click="setAuto(false)">
+        Calibrated
+      </button>
+    </div>
+
+    <p v-if="settings.autoMode" class="mode-note">
+      <b>Auto mode.</b> Readings are uncalibrated, so the numbers are
+      <em>probably not true dB</em> — but the graph automatically scales to the
+      quietest and loudest sounds it has heard, which makes it easy to read
+      <b>relative</b> levels. Capture a reference below to switch to real dB.
+    </p>
+    <p v-else class="mode-note">
+      <b>Calibrated mode.</b> Readings are mapped to real dB SPL using the
+      reference points below, and the graph uses the fixed Min/Max scale from
+      Options. Switch back to <b>Auto</b> any time for relative levels.
+    </p>
+
     <p class="hint">
-      Play or produce a sound at a known level (measured with a reference meter),
-      capture the raw reading, then type the true dB. Two points give a full
-      linear calibration; one point gives a simple offset.
+      To calibrate: play a sound at a known level (measured with a reference
+      meter), capture the raw reading, then type the true dB. Two points give a
+      full linear calibration; one point gives a simple offset.
     </p>
 
     <div class="cal-point" v-for="(p, i) in points" :key="i">
@@ -77,6 +104,19 @@ function clearPoint(i) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.seg.mode {
+  display: flex;
+  width: 100%;
+}
+.seg.mode button {
+  flex: 1;
+}
+.mode-note {
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.85;
+  margin: 0;
 }
 h2 {
   font-size: 13px;

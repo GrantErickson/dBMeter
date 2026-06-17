@@ -26,8 +26,7 @@ const emit = defineEmits(['close'])
             The big number is the current level. Bars are coloured
             <b style="color: hsl(120, 85%, 50%)">green</b> when quiet,
             <b style="color: hsl(60, 85%, 50%)">yellow</b> in the middle and
-            <b style="color: hsl(0, 85%, 50%)">red</b> as they approach your
-            <b>Max</b> setting.
+            <b style="color: hsl(0, 85%, 50%)">red</b> near the top of the scale.
           </li>
           <li>
             <b>Log</b> mode keeps the most recent 2 minutes at half the width and
@@ -50,12 +49,34 @@ const emit = defineEmits(['close'])
         </ul>
       </section>
 
+      <section>
+        <h2>Auto mode vs. calibrated</h2>
+        <ul>
+          <li>
+            <b>Auto</b> (the default, until you calibrate) shows
+            <b>relative</b> levels. The numbers are <em>probably not true dB</em>,
+            but the graph automatically scales between the quietest and loudest
+            sounds it has heard — handy for seeing how loud things are compared to
+            each other.
+          </li>
+          <li>
+            <b>Calibrated</b> maps readings to real dB SPL and uses the fixed
+            Min/Max scale from Options.
+          </li>
+          <li>
+            Switch between them on the <b>Calibrate</b> screen at any time —
+            capturing a reference turns calibration on, and there's an
+            <b>Auto</b> button to turn it back off.
+          </li>
+        </ul>
+      </section>
+
       <section class="calib">
         <h2>Calibrating to real dB SPL</h2>
         <p>
-          Without calibration the readings are <em>relative</em> — fine for
-          comparing loud vs. quiet, but not true decibels. Calibration maps the
-          raw reading onto a real scale using one or two reference points.
+          Calibration maps the raw reading onto a real scale using one or two
+          reference points. (Skip this if you're happy with relative levels in
+          Auto mode.)
         </p>
         <ol>
           <li>

@@ -10,8 +10,9 @@ export const DEFAULT_SETTINGS = {
   aggregation: 'avg', // 'avg' (Leq) | 'max' over the interval
   mode: 'log', // 'log' (compressed timeline) | 'linear' (last 2 min)
   maxTotalMin: 30, // full timeline length in log mode
-  graphMin: 30, // bottom of the dB scale / green floor
-  maxDb: 100, // top of the dB scale / red threshold
+  autoMode: true, // true = uncalibrated + auto-scaling graph range (relative)
+  graphMin: 30, // bottom of the dB scale / green floor (used when calibrated)
+  maxDb: 100, // top of the dB scale / red threshold (used when calibrated)
   calibration: {
     points: [
       { raw: null, known: null }, // quiet reference
@@ -37,7 +38,17 @@ export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (!raw) return structuredClone(DEFAULT_SETTINGS)
-    return deepMerge(structuredClone(DEFAULT_SETTINGS), JSON.parse(raw))
+    const parsed = JSON.parse(raw)
+    const merged = deepMerge(structuredClone(DEFAULT_SETTINGS), parsed)
+    // Upgrade: if a returning user had calibration but no stored autoMode flag,
+    // keep them in calibrated mode rather than silently flipping to Auto.
+    if (parsed.autoMode === undefined) {
+      const pts = (merged.calibration?.points || []).filter(
+        (p) => p && Number.isFinite(p.raw) && Number.isFinite(p.known)
+      )
+      merged.autoMode = pts.length < 1
+    }
+    return merged
   } catch {
     return structuredClone(DEFAULT_SETTINGS)
   }

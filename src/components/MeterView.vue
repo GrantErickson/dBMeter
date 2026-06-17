@@ -8,11 +8,16 @@ const props = defineProps({
   liveStartT: { type: Number, default: null },
   overlays: { type: Array, default: () => [] },
   settings: { type: Object, required: true },
+  range: { type: Object, default: null }, // { min, max } effective dB scale
   isRunning: { type: Boolean, default: false },
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
 })
 const emit = defineEmits(['clear', 'reset-peak', 'help'])
+
+const rng = computed(() =>
+  props.range || { min: props.settings.graphMin, max: props.settings.maxDb }
+)
 
 const dbText = computed(() =>
   Number.isFinite(props.currentDb) ? props.currentDb.toFixed(1) : '--.-'
@@ -22,14 +27,13 @@ const peakText = computed(() =>
 )
 const color = computed(() =>
   Number.isFinite(props.currentDb)
-    ? dbToColor(props.currentDb, props.settings.graphMin, props.settings.maxDb)
+    ? dbToColor(props.currentDb, rng.value.min, rng.value.max)
     : '#9aa3b8'
 )
 const fill = computed(() => {
   if (!Number.isFinite(props.currentDb)) return 0
   const n =
-    (props.currentDb - props.settings.graphMin) /
-    (props.settings.maxDb - props.settings.graphMin || 1)
+    (props.currentDb - rng.value.min) / (rng.value.max - rng.value.min || 1)
   return Math.max(0, Math.min(1, n))
 })
 </script>
@@ -62,6 +66,7 @@ const fill = computed(() => {
         :live-start-t="liveStartT"
         :overlays="overlays"
         :settings="settings"
+        :range="rng"
         :is-running="isRunning"
       />
 

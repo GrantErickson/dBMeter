@@ -53,7 +53,43 @@ function closeHelp() {
 
 const meter = useAudioMeter()
 
-const calibration = computed(() => computeCalibration(settings.calibration.points))
+// Calibration actually applied to readings. In Auto mode we deliberately leave
+// readings uncalibrated (relative) and let the graph range auto-scale instead.
+const IDENTITY_CAL = { slope: 1, offset: 0, points: 0 }
+const appliedCalibration = computed(() =>
+  settings.autoMode ? IDENTITY_CAL : computeCalibration(settings.calibration.points)
+)
+
+// Effective dB range for the y-axis and colours.
+//  - calibrated: the fixed Min/Max the user set in Options
+//  - auto: fits the quietest..loudest levels heard so far (live + overlays)
+const displayRange = computed(() => {
+  if (!settings.autoMode) {
+    return { min: settings.graphMin, max: settings.maxDb }
+  }
+  let lo = Infinity
+  let hi = -Infinity
+  const scan = (arr) => {
+    for (const s of arr) {
+      if (s.db < lo) lo = s.db
+      if (s.db > hi) hi = s.db
+    }
+  }
+  scan(liveSamples.value)
+  for (const o of overlays.value) scan(o.samples)
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+    return { min: -90, max: -20 } // neutral relative window until sound arrives
+  }
+  let span = hi - lo
+  if (span < 6) {
+    const mid = (hi + lo) / 2
+    lo = mid - 3
+    hi = mid + 3
+    span = 6
+  }
+  const pad = span * 0.12
+  return { min: Math.floor(lo - pad), max: Math.ceil(hi + pad) }
+})
 
 const TITLES = {
   options: 'Options',
@@ -67,7 +103,7 @@ function buildConfig() {
     response: settings.response,
     intervalSec: settings.intervalSec > 0 ? settings.intervalSec : 1,
     aggregation: settings.aggregation,
-    calibration: calibration.value,
+    calibration: appliedCalibration.value,
   }
 }
 
@@ -104,6 +140,13 @@ watch(
     if (meter.isRunning.value) meter.updateConfig(buildConfig())
   },
   { deep: true }
+)
+
+// Changing the applied calibration (Auto <-> Calibrated, or editing points)
+// changes the dB scale, so the existing buffer would mix scales. Clear it.
+watch(
+  () => `${appliedCalibration.value.slope}:${appliedCalibration.value.offset}`,
+  () => clearLive()
 )
 
 // Auto-start on open (the gate handles the case where a tap is required).
@@ -177,6 +220,7 @@ const showGate = computed(
         :live-start-t="liveStartT"
         :overlays="overlays"
         :settings="settings"
+        :range="displayRange"
         :is-running="meter.isRunning.value"
         :current-db="meter.currentDb.value"
         :peak-db="meter.peakDb.value"
