@@ -6,9 +6,19 @@ compressing older history. Everything runs in the browser; all settings and
 saved measurements live in **localStorage**. It deploys as an **Azure Static Web
 App**.
 
+The UI is **mobile-first and app-like**: a full-bleed Graph screen plus a bottom
+tab bar (Graph · Options · Calibrate · Saved). It **auto-starts** on open
+(showing a one-tap "Enable microphone" gate if the browser needs a gesture) and
+keeps running across orientation changes and tab switches.
+
+- **Portrait:** large dB readout above a tall graph.
+- **Landscape:** the graph fills the screen with the dB reading **superimposed**
+  in the top-left to save space.
+
 ## Features
 
-- **Live dB meter** with large colour-coded readout and peak hold.
+- **Live dB meter** with large colour-coded readout and peak hold; a **Clear**
+  button on the Meter screen wipes the graph and peak.
 - **Logarithmic timeline** — the most recent **2 minutes occupy 50%** of the
   graph; older data is progressively compressed (a distant minute can be ~1% of
   the width) out to **30 minutes** (configurable).
@@ -91,8 +101,8 @@ vite.config.js
 public/staticwebapp.config.json
 src/
   main.js
-  App.vue                      orchestration + layout
-  styles.css
+  App.vue                      tabbed shell, auto-start, mic gate, state
+  styles.css                   mobile-first globals + shared control styles
   composables/useAudioMeter.js mic capture, weighting, time weighting, sampling
   lib/
     weighting.js               A/B/Z weighting curves
@@ -101,9 +111,20 @@ src/
     color.js                   green→yellow→red mapping + overlay palette
     storage.js                 localStorage settings + sessions
   components/
-    MeterReadout.vue           big live readout + bar
+    TabBar.vue                 bottom navigation (Graph · Options · Calibrate · Saved)
+    MeterView.vue              full-bleed graph + superimposed readout + Clear
     DbGraph.vue                canvas graph (log/linear, colour, overlays)
-    ControlsPanel.vue          weighting/response/interval/mode/scale
+    ControlsPanel.vue          Options screen settings (via `section` prop)
     CalibrationPanel.vue       capture + enter known dB
     SessionsPanel.vue          save / recall / overlay / delete
 ```
+
+## Mobile notes
+
+- **Auto-start:** opens straight into a running meter. The first visit (or any
+  time permission is needed) shows a one-tap **Enable microphone** gate, since
+  browsers require a user gesture and a secure context for the mic.
+- The screen is **allowed to sleep** normally (no wake lock).
+- **Pause/Resume** the microphone from the Options screen; the meter otherwise
+  keeps running while you switch tabs or rotate the device.
+- Add it to your home screen for a full-screen, app-like experience.

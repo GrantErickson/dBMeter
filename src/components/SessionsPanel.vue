@@ -41,8 +41,6 @@ function fmtDur(s) {
 
 <template>
   <div class="panel">
-    <h2>Saved sessions</h2>
-
     <div class="save-row">
       <input
         type="text"
@@ -109,22 +107,24 @@ h2 {
 }
 .save-row input {
   flex: 1;
+  min-width: 0;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: inherit;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 10px 10px;
+  font-size: 16px;
 }
 button.save {
   border: none;
   background: #2bb673;
   color: #fff;
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 10px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
+  min-height: 42px;
 }
 button.save:disabled {
   opacity: 0.4;
@@ -151,19 +151,22 @@ button.save:disabled {
 .list li {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.04);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 .dot {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.4);
   background: transparent;
   cursor: pointer;
   flex: none;
+}
+.del {
+  padding: 6px 8px;
 }
 .info {
   flex: 1;

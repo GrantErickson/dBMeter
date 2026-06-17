@@ -27,7 +27,6 @@ function clearPoint(i) {
 
 <template>
   <div class="panel">
-    <h2>Calibration</h2>
     <p class="hint">
       Play or produce a sound at a known level (measured with a reference meter),
       capture the raw reading, then type the true dB. Two points give a full
@@ -104,9 +103,12 @@ h2 {
 }
 .cal-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto auto;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  align-items: center;
+  align-items: end;
+}
+.cal-grid button {
+  width: 100%;
 }
 .field {
   display: flex;
@@ -127,18 +129,19 @@ input[type='number'] {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: inherit;
-  border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 16px;
   width: 100%;
 }
 button.cap,
 button.clr {
   border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 10px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  min-height: 40px;
 }
 button.cap {
   background: #3b6cff;
