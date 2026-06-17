@@ -136,6 +136,9 @@ src/
 - **Full screen** — tap the ⛶ button on the graph (Android/desktop browsers).
   The Fullscreen API requires a tap, so it can't be automatic; on iPhone (no
   Fullscreen API) use **Share → Add to Home Screen** instead.
-- **Pause/Resume** the microphone from the Options screen; the meter otherwise
-  keeps running while you switch tabs or rotate the device.
+- **Pause/Resume** the microphone with the ⏸/▶ button on the graph (or from the
+  Options screen); the meter otherwise keeps running while you switch tabs or
+  rotate the device.
+- **Auto-pause:** if the app stays hidden/unvisited for about an hour, the mic
+  pauses automatically to save battery — tap ▶ to resume.
 - Add it to your home screen for a full-screen, app-like experience.

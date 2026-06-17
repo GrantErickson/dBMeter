@@ -126,6 +126,11 @@ const emit = defineEmits(['close'])
         <ul>
           <li>Microphone access needs a secure page (HTTPS) or localhost, and your permission.</li>
           <li>The app keeps measuring while you switch tabs or rotate the device.</li>
+          <li>
+            Use the <b>⏸ / ▶</b> button to pause or resume the mic. It also
+            auto-pauses after the app has been in the background for about an
+            hour — tap <b>▶</b> to start again.
+          </li>
           <li>In landscape the graph fills the screen with the reading on top.</li>
           <li>
             Tap the <b>⛶</b> button on the graph for full screen. On iPhone that

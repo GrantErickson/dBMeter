@@ -1,7 +1,8 @@
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from 'vue'
+import { reactive, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useAudioMeter } from './composables/useAudioMeter.js'
 import { computeCalibration } from './lib/calibration.js'
+import { shouldIdlePause } from './lib/idle.js'
 import {
   loadSettings,
   saveSettings,
@@ -112,12 +113,34 @@ async function tryStart() {
   if (!ok && liveSamples.value.length === 0) liveStartT.value = null
 }
 
-function toggleMic() {
+function pauseMic() {
   if (meter.isRunning.value) {
     meter.stop()
     userPaused.value = true
+  }
+}
+
+function toggleMic() {
+  if (meter.isRunning.value) pauseMic()
+  else tryStart()
+}
+
+// ---- auto-pause after an hour hidden / not visited ----
+let hiddenSince =
+  typeof document !== 'undefined' && document.hidden ? Date.now() : null
+let idleTimer = null
+
+function onVisibility() {
+  if (document.hidden) {
+    if (hiddenSince === null) hiddenSince = Date.now()
   } else {
-    tryStart()
+    hiddenSince = null // a visit resets the idle clock
+  }
+}
+
+function checkIdle() {
+  if (shouldIdlePause(hiddenSince, Date.now(), meter.isRunning.value)) {
+    pauseMic()
   }
 }
 
@@ -149,6 +172,12 @@ watch(
 // Auto-start on open (the gate handles the case where a tap is required).
 onMounted(() => {
   tryStart()
+  document.addEventListener('visibilitychange', onVisibility)
+  idleTimer = setInterval(checkIdle, 60000) // check every minute
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibility)
+  if (idleTimer) clearInterval(idleTimer)
 })
 
 // ---- sessions ----
@@ -223,6 +252,7 @@ const showGate = computed(
         :peak-db="meter.peakDb.value"
         @clear="clearLive"
         @reset-peak="meter.resetPeak()"
+        @toggle-mic="toggleMic"
       />
 
       <!-- Help / first-run guide -->

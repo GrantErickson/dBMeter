@@ -20,7 +20,7 @@ const props = defineProps({
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
 })
-const emit = defineEmits(['clear', 'reset-peak'])
+const emit = defineEmits(['clear', 'reset-peak', 'toggle-mic'])
 
 const rng = computed(() =>
   props.range || { min: props.settings.graphMin, max: props.settings.maxDb }
@@ -92,6 +92,20 @@ const fill = computed(() => {
 
       <!-- Actions (top-right over the graph, both orientations) -->
       <div class="hud-actions">
+        <button
+          class="hud-play"
+          :title="isRunning ? 'Pause' : 'Resume'"
+          @click="emit('toggle-mic')"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path
+              v-if="isRunning"
+              d="M7 5h3v14H7z M14 5h3v14h-3z"
+              fill="currentColor"
+            />
+            <path v-else d="M8 5l12 7-12 7z" fill="currentColor" />
+          </svg>
+        </button>
         <button
           v-if="fsSupported"
           class="hud-icon"
@@ -289,6 +303,20 @@ const fill = computed(() => {
   align-items: center;
   justify-content: center;
   padding: 0;
+}
+/* Pause/play: a bit larger than the icon buttons, smaller than the readout. */
+.hud-play {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(20, 26, 43, 0.9);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-right: 2px;
 }
 
 .hud-foot {
