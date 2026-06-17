@@ -3,6 +3,17 @@ defineProps({
   firstRun: { type: Boolean, default: false },
 })
 const emit = defineEmits(['close'])
+
+// Platform detection for install / full-screen guidance (evaluated on mount).
+const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+const touchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints || 0 : 0
+const isIOS = /iP(hone|od|ad)/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)
+const isAndroid = /Android/.test(ua)
+const isStandalone =
+  (typeof window !== 'undefined' &&
+    !!window.matchMedia &&
+    window.matchMedia('(display-mode: standalone)').matches) ||
+  (typeof navigator !== 'undefined' && navigator.standalone === true)
 </script>
 
 <template>
@@ -121,6 +132,49 @@ const emit = defineEmits(['close'])
         </ul>
       </section>
 
+      <section class="install">
+        <h2>Full screen &amp; running as an app</h2>
+
+        <p v-if="isStandalone">
+          You're running dB Meter as an installed app — the address bar is
+          already gone. Enjoy the extra space.
+        </p>
+
+        <template v-else-if="isIOS">
+          <p>
+            On iPhone &amp; iPad, add dB Meter to your Home Screen to run it like
+            a real app, with <b>no address bar</b>:
+          </p>
+          <ol>
+            <li>In <b>Safari</b>, tap the <b>Share</b> button (square with an up arrow).</li>
+            <li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+            <li>Open dB Meter from the new icon — it launches full-screen.</li>
+          </ol>
+          <p class="note">
+            iPhone Safari has no full-screen button, so this is the best way to
+            reclaim the whole screen.
+          </p>
+        </template>
+
+        <template v-else-if="isAndroid">
+          <p>
+            Tap the <b>⛶</b> button on the graph for instant full screen. To run
+            it as a standalone app (no address bar):
+          </p>
+          <ol>
+            <li>Open Chrome's <b>⋮</b> menu.</li>
+            <li>Tap <b>Add to Home screen</b> (or <b>Install app</b>) and confirm.</li>
+            <li>Launch it from the new icon.</li>
+          </ol>
+        </template>
+
+        <p v-else>
+          Tap the <b>⛶</b> button on the graph for full screen. You can also
+          install dB Meter from your browser's menu (<b>Install</b> / <b>Add to
+          Home Screen</b>) to run it in its own window.
+        </p>
+      </section>
+
       <section>
         <h2>Good to know</h2>
         <ul>
@@ -132,11 +186,6 @@ const emit = defineEmits(['close'])
             hour — tap <b>▶</b> to start again.
           </li>
           <li>In landscape the graph fills the screen with the reading on top.</li>
-          <li>
-            Tap the <b>⛶</b> button on the graph for full screen. On iPhone that
-            control isn't available — use <b>Share → Add to Home Screen</b> for a
-            chrome-free, app-like view.
-          </li>
         </ul>
       </section>
 
