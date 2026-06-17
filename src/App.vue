@@ -1,99 +1,110 @@
 <script setup>
-import { reactive, ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useAudioMeter } from './composables/useAudioMeter.js'
-import { computeCalibration } from './lib/calibration.js'
-import { shouldIdlePause } from './lib/idle.js'
+import {
+  reactive,
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+} from "vue";
+import { useAudioMeter } from "./composables/useAudioMeter.js";
+import { computeCalibration } from "./lib/calibration.js";
+import { shouldIdlePause } from "./lib/idle.js";
 import {
   loadSettings,
   saveSettings,
   loadSessions,
   saveSessions,
   uid,
-} from './lib/storage.js'
-import { OVERLAY_COLORS } from './lib/color.js'
+} from "./lib/storage.js";
+import { OVERLAY_COLORS } from "./lib/color.js";
 
-import TabBar from './components/TabBar.vue'
-import MeterView from './components/MeterView.vue'
-import ControlsPanel from './components/ControlsPanel.vue'
-import CalibrationPanel from './components/CalibrationPanel.vue'
-import SessionsPanel from './components/SessionsPanel.vue'
-import HelpView from './components/HelpView.vue'
+import TabBar from "./components/TabBar.vue";
+import MeterView from "./components/MeterView.vue";
+import ControlsPanel from "./components/ControlsPanel.vue";
+import CalibrationPanel from "./components/CalibrationPanel.vue";
+import SessionsPanel from "./components/SessionsPanel.vue";
+import HelpView from "./components/HelpView.vue";
+import PWAInstallPrompt from "./components/PWAInstallPrompt.vue";
+import PWAInstallButton from "./components/PWAInstallButton.vue";
 
-const HELP_KEY = 'dbmeter.helpseen.v1'
-let helpSeenInitially = false
+const HELP_KEY = "dbmeter.helpseen.v1";
+let helpSeenInitially = false;
 try {
-  helpSeenInitially = !!localStorage.getItem(HELP_KEY)
+  helpSeenInitially = !!localStorage.getItem(HELP_KEY);
 } catch {
   /* storage unavailable */
 }
 
-const settings = reactive(loadSettings())
-const sessions = ref(loadSessions())
-const overlays = ref([]) // [{ id, name, color, startT, samples }]
+const settings = reactive(loadSettings());
+const sessions = ref(loadSessions());
+const overlays = ref([]); // [{ id, name, color, startT, samples }]
 
-const liveSamples = ref([])
-const liveStartT = ref(null)
+const liveSamples = ref([]);
+const liveStartT = ref(null);
 
 // First launch opens the Help screen; afterwards it goes straight to the graph.
-const activeTab = ref(helpSeenInitially ? 'meter' : 'help')
-const helpFirstRun = ref(!helpSeenInitially)
-const userPaused = ref(false) // true only when the user explicitly pauses
+const activeTab = ref(helpSeenInitially ? "meter" : "help");
+const helpFirstRun = ref(!helpSeenInitially);
+const userPaused = ref(false); // true only when the user explicitly pauses
 
 function closeHelp() {
-  helpFirstRun.value = false
+  helpFirstRun.value = false;
   try {
-    localStorage.setItem(HELP_KEY, '1')
+    localStorage.setItem(HELP_KEY, "1");
   } catch {
     /* ignore */
   }
-  activeTab.value = 'meter'
+  activeTab.value = "meter";
 }
 
-const meter = useAudioMeter()
+const meter = useAudioMeter();
 
 // Calibration actually applied to readings. In Auto mode we deliberately leave
 // readings uncalibrated (relative) and let the graph range auto-scale instead.
-const IDENTITY_CAL = { slope: 1, offset: 0, points: 0 }
+const IDENTITY_CAL = { slope: 1, offset: 0, points: 0 };
 const appliedCalibration = computed(() =>
-  settings.autoMode ? IDENTITY_CAL : computeCalibration(settings.calibration.points)
-)
+  settings.autoMode
+    ? IDENTITY_CAL
+    : computeCalibration(settings.calibration.points),
+);
 
 // Effective dB range for the y-axis and colours.
 //  - calibrated: the fixed Min/Max the user set in Options
 //  - auto: fits the quietest..loudest levels heard so far (live + overlays)
 const displayRange = computed(() => {
   if (!settings.autoMode) {
-    return { min: settings.graphMin, max: settings.maxDb }
+    return { min: settings.graphMin, max: settings.maxDb };
   }
-  let lo = Infinity
-  let hi = -Infinity
+  let lo = Infinity;
+  let hi = -Infinity;
   const scan = (arr) => {
     for (const s of arr) {
-      if (s.db < lo) lo = s.db
-      if (s.db > hi) hi = s.db
+      if (s.db < lo) lo = s.db;
+      if (s.db > hi) hi = s.db;
     }
-  }
-  scan(liveSamples.value)
-  for (const o of overlays.value) scan(o.samples)
+  };
+  scan(liveSamples.value);
+  for (const o of overlays.value) scan(o.samples);
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
-    return { min: -90, max: -20 } // neutral relative window until sound arrives
+    return { min: -90, max: -20 }; // neutral relative window until sound arrives
   }
-  let span = hi - lo
+  let span = hi - lo;
   if (span < 6) {
-    const mid = (hi + lo) / 2
-    lo = mid - 3
-    hi = mid + 3
-    span = 6
+    const mid = (hi + lo) / 2;
+    lo = mid - 3;
+    hi = mid + 3;
+    span = 6;
   }
-  const pad = span * 0.12
-  return { min: Math.floor(lo - pad), max: Math.ceil(hi + pad) }
-})
+  const pad = span * 0.12;
+  return { min: Math.floor(lo - pad), max: Math.ceil(hi + pad) };
+});
 
 const TITLES = {
-  options: 'Options',
-  cal: 'Calibration',
-  sessions: 'Saved sessions',
-}
+  options: "Options",
+  cal: "Calibration",
+  sessions: "Saved sessions",
+};
 
 function buildConfig() {
   return {
@@ -102,87 +113,87 @@ function buildConfig() {
     intervalSec: settings.intervalSec > 0 ? settings.intervalSec : 1,
     aggregation: settings.aggregation,
     calibration: appliedCalibration.value,
-  }
+  };
 }
 
 async function tryStart() {
-  userPaused.value = false
-  if (meter.isRunning.value) return
-  if (liveSamples.value.length === 0) liveStartT.value = Date.now()
-  const ok = await meter.start(buildConfig(), onSample)
-  if (!ok && liveSamples.value.length === 0) liveStartT.value = null
+  userPaused.value = false;
+  if (meter.isRunning.value) return;
+  if (liveSamples.value.length === 0) liveStartT.value = Date.now();
+  const ok = await meter.start(buildConfig(), onSample);
+  if (!ok && liveSamples.value.length === 0) liveStartT.value = null;
 }
 
 function pauseMic() {
   if (meter.isRunning.value) {
-    meter.stop()
-    userPaused.value = true
+    meter.stop();
+    userPaused.value = true;
   }
 }
 
 function toggleMic() {
-  if (meter.isRunning.value) pauseMic()
-  else tryStart()
+  if (meter.isRunning.value) pauseMic();
+  else tryStart();
 }
 
 // ---- auto-pause after an hour hidden / not visited ----
 let hiddenSince =
-  typeof document !== 'undefined' && document.hidden ? Date.now() : null
-let idleTimer = null
+  typeof document !== "undefined" && document.hidden ? Date.now() : null;
+let idleTimer = null;
 
 function onVisibility() {
   if (document.hidden) {
-    if (hiddenSince === null) hiddenSince = Date.now()
+    if (hiddenSince === null) hiddenSince = Date.now();
   } else {
-    hiddenSince = null // a visit resets the idle clock
+    hiddenSince = null; // a visit resets the idle clock
   }
 }
 
 function checkIdle() {
   if (shouldIdlePause(hiddenSince, Date.now(), meter.isRunning.value)) {
-    pauseMic()
+    pauseMic();
   }
 }
 
 function onSample(s) {
-  liveSamples.value.push(s)
-  const cutoff = Date.now() - settings.maxTotalMin * 60000
-  const arr = liveSamples.value
-  let i = 0
-  while (i < arr.length && arr[i].t < cutoff) i++
-  if (i > 0) arr.splice(0, i)
+  liveSamples.value.push(s);
+  const cutoff = Date.now() - settings.maxTotalMin * 60000;
+  const arr = liveSamples.value;
+  let i = 0;
+  while (i < arr.length && arr[i].t < cutoff) i++;
+  if (i > 0) arr.splice(0, i);
 }
 
 watch(
   settings,
   () => {
-    saveSettings(settings)
-    if (meter.isRunning.value) meter.updateConfig(buildConfig())
+    saveSettings(settings);
+    if (meter.isRunning.value) meter.updateConfig(buildConfig());
   },
-  { deep: true }
-)
+  { deep: true },
+);
 
 // Changing the applied calibration (Auto <-> Calibrated, or editing points)
 // changes the dB scale, so the existing buffer would mix scales. Clear it.
 watch(
   () => `${appliedCalibration.value.slope}:${appliedCalibration.value.offset}`,
-  () => clearLive()
-)
+  () => clearLive(),
+);
 
 // Auto-start on open (the gate handles the case where a tap is required).
 onMounted(() => {
-  tryStart()
-  document.addEventListener('visibilitychange', onVisibility)
-  idleTimer = setInterval(checkIdle, 60000) // check every minute
-})
+  tryStart();
+  document.addEventListener("visibilitychange", onVisibility);
+  idleTimer = setInterval(checkIdle, 60000); // check every minute
+});
 onBeforeUnmount(() => {
-  document.removeEventListener('visibilitychange', onVisibility)
-  if (idleTimer) clearInterval(idleTimer)
-})
+  document.removeEventListener("visibilitychange", onVisibility);
+  if (idleTimer) clearInterval(idleTimer);
+});
 
 // ---- sessions ----
 function saveCurrent(name) {
-  if (!liveSamples.value.length) return
+  if (!liveSamples.value.length) return;
   const session = {
     id: uid(),
     name,
@@ -195,45 +206,46 @@ function saveCurrent(name) {
       aggregation: settings.aggregation,
       intervalSec: settings.intervalSec,
     },
-  }
-  sessions.value = [session, ...sessions.value]
-  saveSessions(sessions.value)
+  };
+  sessions.value = [session, ...sessions.value];
+  saveSessions(sessions.value);
 }
 
 function toggleOverlay(session) {
-  const i = overlays.value.findIndex((o) => o.id === session.id)
+  const i = overlays.value.findIndex((o) => o.id === session.id);
   if (i >= 0) {
-    overlays.value.splice(i, 1)
-    return
+    overlays.value.splice(i, 1);
+    return;
   }
-  const used = new Set(overlays.value.map((o) => o.color))
+  const used = new Set(overlays.value.map((o) => o.color));
   const color =
     OVERLAY_COLORS.find((c) => !used.has(c)) ||
-    OVERLAY_COLORS[overlays.value.length % OVERLAY_COLORS.length]
+    OVERLAY_COLORS[overlays.value.length % OVERLAY_COLORS.length];
   overlays.value.push({
     id: session.id,
     name: session.name,
     color,
     startT: session.startT,
     samples: session.samples,
-  })
+  });
 }
 
 function deleteSession(session) {
-  sessions.value = sessions.value.filter((s) => s.id !== session.id)
-  overlays.value = overlays.value.filter((o) => o.id !== session.id)
-  saveSessions(sessions.value)
+  sessions.value = sessions.value.filter((s) => s.id !== session.id);
+  overlays.value = overlays.value.filter((o) => o.id !== session.id);
+  saveSessions(sessions.value);
 }
 
 function clearLive() {
-  liveSamples.value = []
-  liveStartT.value = meter.isRunning.value ? Date.now() : null
-  meter.resetPeak()
+  liveSamples.value = [];
+  liveStartT.value = meter.isRunning.value ? Date.now() : null;
+  meter.resetPeak();
 }
 
 const showGate = computed(
-  () => activeTab.value === 'meter' && !meter.isRunning.value && !userPaused.value
-)
+  () =>
+    activeTab.value === "meter" && !meter.isRunning.value && !userPaused.value,
+);
 </script>
 
 <template>
@@ -268,13 +280,15 @@ const showGate = computed(
           <h1>{{ TITLES[activeTab] }}</h1>
         </header>
         <div class="sh-body">
-          <ControlsPanel
-            v-if="activeTab === 'options'"
-            :settings="settings"
-            section="all"
-            :is-running="meter.isRunning.value"
-            @toggle-mic="toggleMic"
-          />
+          <template v-if="activeTab === 'options'">
+            <ControlsPanel
+              :settings="settings"
+              section="all"
+              :is-running="meter.isRunning.value"
+              @toggle-mic="toggleMic"
+            />
+            <PWAInstallButton />
+          </template>
           <CalibrationPanel
             v-else-if="activeTab === 'cal'"
             :settings="settings"
@@ -313,13 +327,17 @@ const showGate = computed(
           <p>
             {{
               meter.error.value ||
-              'Tap to allow microphone access and start measuring. Requires HTTPS or localhost.'
+              "Tap to allow microphone access and start measuring. Requires HTTPS or localhost."
             }}
           </p>
           <button class="gate-btn" @click="tryStart">Enable &amp; start</button>
         </div>
       </div>
     </main>
+
+    <!-- Offer to install as an app (Android/desktop button, iOS instructions).
+         Sits above the tab bar so it never covers navigation. -->
+    <PWAInstallPrompt />
 
     <!-- Tab bar stays visible everywhere except the first-run welcome guide. -->
     <TabBar
