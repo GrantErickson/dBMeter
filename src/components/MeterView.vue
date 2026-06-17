@@ -2,6 +2,13 @@
 import { computed } from 'vue'
 import DbGraph from './DbGraph.vue'
 import { dbToColor } from '../lib/color.js'
+import { useFullscreen } from '../composables/useFullscreen.js'
+
+const {
+  isFullscreen,
+  supported: fsSupported,
+  toggle: toggleFullscreen,
+} = useFullscreen()
 
 const props = defineProps({
   liveSamples: { type: Array, default: () => [] },
@@ -13,7 +20,7 @@ const props = defineProps({
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
 })
-const emit = defineEmits(['clear', 'reset-peak', 'help'])
+const emit = defineEmits(['clear', 'reset-peak'])
 
 const rng = computed(() =>
   props.range || { min: props.settings.graphMin, max: props.settings.maxDb }
@@ -85,7 +92,27 @@ const fill = computed(() => {
 
       <!-- Actions (top-right over the graph, both orientations) -->
       <div class="hud-actions">
-        <button class="help-btn" title="Help" @click="emit('help')">?</button>
+        <button
+          v-if="fsSupported"
+          class="hud-icon"
+          :title="isFullscreen ? 'Exit full screen' : 'Full screen'"
+          @click="toggleFullscreen"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              :d="
+                isFullscreen
+                  ? 'M8 3v3a2 2 0 0 1-2 2H3 M21 8h-3a2 2 0 0 1-2-2V3 M3 16h3a2 2 0 0 1 2 2v3 M16 21v-3a2 2 0 0 1 2-2h3'
+                  : 'M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M16 21h3a2 2 0 0 0 2-2v-3 M3 16v3a2 2 0 0 0 2 2h3'
+              "
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
         <div class="seg compact">
           <button
             :class="{ active: settings.mode === 'log' }"
@@ -248,7 +275,7 @@ const fill = computed(() => {
   font-weight: 600;
   min-height: 28px;
 }
-.help-btn {
+.hud-icon {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -258,6 +285,10 @@ const fill = computed(() => {
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .hud-foot {

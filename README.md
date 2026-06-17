@@ -19,7 +19,7 @@ keeps running across orientation changes and tab switches.
 
 - **In-app help / guide** that explains the graph, options and calibration. It
   opens automatically on first launch (with a *Get started* button) and is
-  reachable any time from the **?** on the Graph screen or in any settings header.
+  reachable any time from the **Help** tab.
 - **Live dB meter** with large colour-coded readout and peak hold; a **Clear**
   button on the Meter screen wipes the graph and peak.
 - **Logarithmic timeline** — the most recent **2 minutes occupy 50%** of the
@@ -133,6 +133,9 @@ src/
   time permission is needed) shows a one-tap **Enable microphone** gate, since
   browsers require a user gesture and a secure context for the mic.
 - The screen is **allowed to sleep** normally (no wake lock).
+- **Full screen** — tap the ⛶ button on the graph (Android/desktop browsers).
+  The Fullscreen API requires a tap, so it can't be automatic; on iPhone (no
+  Fullscreen API) use **Share → Add to Home Screen** instead.
 - **Pause/Resume** the microphone from the Options screen; the meter otherwise
   keeps running while you switch tabs or rotate the device.
 - Add it to your home screen for a full-screen, app-like experience.

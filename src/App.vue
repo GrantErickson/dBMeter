@@ -38,9 +38,6 @@ const activeTab = ref(helpSeenInitially ? 'meter' : 'help')
 const helpFirstRun = ref(!helpSeenInitially)
 const userPaused = ref(false) // true only when the user explicitly pauses
 
-function openHelp() {
-  activeTab.value = 'help'
-}
 function closeHelp() {
   helpFirstRun.value = false
   try {
@@ -226,7 +223,6 @@ const showGate = computed(
         :peak-db="meter.peakDb.value"
         @clear="clearLive"
         @reset-peak="meter.resetPeak()"
-        @help="openHelp"
       />
 
       <!-- Help / first-run guide -->
@@ -240,7 +236,6 @@ const showGate = computed(
       <div v-else class="settings-screen">
         <header class="sh">
           <h1>{{ TITLES[activeTab] }}</h1>
-          <button class="sh-help" title="Help" @click="openHelp">?</button>
         </header>
         <div class="sh-body">
           <ControlsPanel
@@ -337,17 +332,6 @@ const showGate = computed(
 .sh h1 {
   margin: 0;
   font-size: 22px;
-}
-.sh-help {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  font-size: 16px;
-  font-weight: 700;
 }
 .sh-body {
   padding: 0 16px;

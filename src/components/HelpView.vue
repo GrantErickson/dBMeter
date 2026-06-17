@@ -127,6 +127,11 @@ const emit = defineEmits(['close'])
           <li>Microphone access needs a secure page (HTTPS) or localhost, and your permission.</li>
           <li>The app keeps measuring while you switch tabs or rotate the device.</li>
           <li>In landscape the graph fills the screen with the reading on top.</li>
+          <li>
+            Tap the <b>⛶</b> button on the graph for full screen. On iPhone that
+            control isn't available — use <b>Share → Add to Home Screen</b> for a
+            chrome-free, app-like view.
+          </li>
         </ul>
       </section>
 
