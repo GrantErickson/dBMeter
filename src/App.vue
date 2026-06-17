@@ -157,6 +157,7 @@ const showGate = computed(
         :current-db="meter.currentDb.value"
         :peak-db="meter.peakDb.value"
         @clear="clearLive"
+        @reset-peak="meter.resetPeak()"
       />
 
       <!-- Settings screens -->

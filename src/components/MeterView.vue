@@ -12,7 +12,7 @@ const props = defineProps({
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
 })
-const emit = defineEmits(['clear'])
+const emit = defineEmits(['clear', 'reset-peak'])
 
 const dbText = computed(() =>
   Number.isFinite(props.currentDb) ? props.currentDb.toFixed(1) : '--.-'
@@ -46,7 +46,9 @@ const fill = computed(() => {
         <div class="rb-meta">
           {{ settings.weighting }} · {{ settings.response === 'slow' ? 'Slow' : 'Fast' }}
         </div>
-        <div class="rb-peak">peak {{ peakText }}</div>
+        <button class="rb-peak" title="Tap to reset peak" @click="emit('reset-peak')">
+          peak {{ peakText }}
+        </button>
       </div>
     </div>
     <div class="rb-bar">
@@ -69,8 +71,10 @@ const fill = computed(() => {
           {{ dbText }}<small>dB</small>
         </div>
         <div class="hr-meta">
-          {{ settings.weighting }} · {{ settings.response === 'slow' ? 'Slow' : 'Fast' }}
-          · pk {{ peakText }}
+          {{ settings.weighting }} · {{ settings.response === 'slow' ? 'Slow' : 'Fast' }} ·
+          <button class="hr-peak" title="Tap to reset peak" @click="emit('reset-peak')">
+            pk {{ peakText }}
+          </button>
         </div>
       </div>
 
@@ -145,6 +149,15 @@ const fill = computed(() => {
   opacity: 0.7;
   line-height: 1.4;
 }
+.rb-peak {
+  border: none;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 12px;
+  margin-top: 2px;
+}
 .rb-bar {
   height: 8px;
   border-radius: 5px;
@@ -191,6 +204,16 @@ const fill = computed(() => {
   opacity: 0.8;
   margin-top: 6px;
 }
+.hr-peak {
+  pointer-events: auto; /* parent .hud-readout disables pointer events */
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font: inherit;
+  cursor: pointer;
+}
 
 .hud-actions {
   position: absolute;
@@ -222,8 +245,8 @@ const fill = computed(() => {
 
 .hud-foot {
   position: absolute;
-  left: 10px;
-  bottom: 8px;
+  left: 54px; /* clear of the dB axis labels */
+  bottom: 32px; /* clear of the time (x) axis labels */
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

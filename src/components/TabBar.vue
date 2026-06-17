@@ -80,6 +80,7 @@ const tabs = [
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   padding: 8px 2px 7px;
   font-size: 11px;

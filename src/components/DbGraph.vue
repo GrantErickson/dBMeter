@@ -69,11 +69,21 @@ function draw() {
   const ls = props.liveSamples
   const newestT = ls.length ? ls[ls.length - 1].t : null
   const nowT = props.isRunning ? Date.now() : newestT || Date.now()
-  const elapsedNowMin = props.liveStartT ? (nowT - props.liveStartT) / 60000 : 0
+  const liveSpanMin = props.liveStartT ? (nowT - props.liveStartT) / 60000 : 0
+
+  // The axis spans the longest of the live session and any recalled overlay, so
+  // a recalled session is always fully visible even if the live one is shorter.
+  let spanMin = liveSpanMin
+  for (const o of props.overlays) {
+    if (o.samples && o.samples.length > 1) {
+      const dur = (o.samples[o.samples.length - 1].t - o.samples[0].t) / 60000
+      if (dur > spanMin) spanMin = dur
+    }
+  }
 
   const mode = s.mode
-  // log axis grows from 2 min up to maxTotalMin as the session runs.
-  const axisTotal = mode === 'linear' ? 2 : Math.min(s.maxTotalMin, Math.max(2, elapsedNowMin))
+  // log axis grows from 2 min up to maxTotalMin as data accumulates.
+  const axisTotal = mode === 'linear' ? 2 : Math.min(s.maxTotalMin, Math.max(2, spanMin))
   const u = mode === 'linear' ? null : computeU(axisTotal)
   const winMax = mode === 'linear' ? 2 : axisTotal
 
@@ -146,17 +156,19 @@ function draw() {
     ctx.fillRect(x, y, bw, plot.bottom - y)
   }
 
-  // ---- overlay (recalled) sessions as lines, aligned by elapsed-from-start ----
+  // ---- overlay (recalled) sessions as lines; each is anchored so its end sits
+  //      at "now" (right edge), aligning the high-detail recent regions ----
   for (const o of props.overlays) {
+    if (!o.samples || !o.samples.length) continue
+    const oEnd = o.samples[o.samples.length - 1].t
     ctx.strokeStyle = o.color
     ctx.lineWidth = 2
     ctx.globalAlpha = 0.9
     ctx.beginPath()
     let started = false
     for (const sa of o.samples) {
-      const elapsed = (sa.t - o.startT) / 60000
-      const ageEquiv = elapsedNowMin - elapsed
-      const x = mapX(ageEquiv)
+      const age = (oEnd - sa.t) / 60000
+      const x = mapX(age)
       if (x === null) {
         started = false
         continue
