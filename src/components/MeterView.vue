@@ -25,12 +25,8 @@ const props = defineProps({
 })
 const emit = defineEmits(['clear', 'reset-peak', 'toggle-mic'])
 
-// Tracked frequencies that should be drawn (enabled). Recording happens for all
-// of them regardless; this filter only governs the on-screen lines/chips.
-const enabledFreqTracks = computed(() =>
-  props.settings.freqTracks.filter((t) => t.enabled !== false)
-)
-
+// Live value text for a tracked frequency (recorded for all tracks regardless
+// of whether their line is currently shown).
 function freqValText(id) {
   const v = props.currentFreqs[id]
   return Number.isFinite(v) ? v.toFixed(0) : '--'
@@ -156,6 +152,34 @@ const fill = computed(() => {
         >
           Hz
         </button>
+        <button
+          v-if="settings.freqOverlayOn && settings.freqTracks.length"
+          class="hud-icon"
+          :class="{ active: settings.freqOnly }"
+          :title="
+            settings.freqOnly
+              ? 'Show the level bars too'
+              : 'Show only the frequency lines'
+          "
+          @click="settings.freqOnly = !settings.freqOnly"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              d="M5 20V11 M12 20V5 M19 20v-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              v-if="settings.freqOnly"
+              d="M4 20 20 4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
         <div class="seg compact">
           <button
             :class="{ active: settings.mode === 'log' }"
@@ -184,13 +208,22 @@ const fill = computed(() => {
           >{{ o.name }}</span
         >
         <template v-if="settings.freqOverlayOn">
-          <span
-            v-for="t in enabledFreqTracks"
+          <button
+            v-for="t in settings.freqTracks"
             :key="'f' + t.id"
-            class="chip"
-            :style="{ borderColor: t.color, color: t.color }"
-            >{{ fmtFreq(t.freq) }} · {{ freqValText(t.id) }}</span
+            class="chip freq-chip"
+            :class="{ off: t.enabled === false }"
+            :style="
+              t.enabled !== false ? { borderColor: t.color, color: t.color } : {}
+            "
+            :title="t.enabled !== false ? 'Hide this line' : 'Show this line'"
+            @click="t.enabled = t.enabled === false"
           >
+            {{ fmtFreq(t.freq)
+            }}<template v-if="t.enabled !== false">
+              · {{ freqValText(t.id) }}</template
+            >
+          </button>
         </template>
       </div>
     </div>
@@ -357,6 +390,10 @@ const fill = computed(() => {
   justify-content: center;
   padding: 0;
 }
+.hud-icon.active {
+  background: var(--accent);
+  color: #fff;
+}
 /* Pause/play: a bit larger than the icon buttons, smaller than the readout. */
 .hud-play {
   width: 36px;
@@ -387,6 +424,18 @@ const fill = computed(() => {
   border-radius: 999px;
   padding: 2px 8px;
   background: rgba(12, 15, 26, 0.6);
+}
+/* Frequency chips are tappable to show/hide their line (the foot is otherwise
+   pointer-events:none so it never blocks the graph underneath). */
+.chip.freq-chip {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.chip.off {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.4);
 }
 .paused {
   font-size: 11px;

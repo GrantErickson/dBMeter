@@ -134,8 +134,14 @@ const isStandalone =
             tap it again to hide them. Each line is labelled with its frequency.
           </li>
           <li>
-            Use the coloured dot next to a frequency on Options to show or hide
-            that one line without affecting the others.
+            With the overlay on, tap a <b>frequency chip</b> at the bottom-left
+            of the graph to show or hide that individual line. (The coloured dot
+            next to each frequency on Options does the same thing.)
+          </li>
+          <li>
+            Use the <b>bars</b> button next to <b>Hz</b> to hide the main level
+            bars and show <em>only</em> the frequency lines for an uncluttered
+            view.
           </li>
           <li>
             A single frequency carries far less energy than the whole sound, so

@@ -141,23 +141,32 @@ function draw() {
     ctx.fillText(fmtAge(m), x, plot.bottom + 4)
   }
 
+  // "Frequency lines only" hides the broadband bars (keeping the grid, axes and
+  // the tracked-frequency lines). It only takes effect when the overlay is on
+  // and at least one line is actually drawn, so it can never blank the graph.
+  const anyFreqLine =
+    props.showFreq && (s.freqTracks || []).some((t) => t.enabled !== false)
+  const hideBars = anyFreqLine && s.freqOnly
+
   // ---- live data as coloured bars ----
-  for (let i = 0; i < ls.length; i++) {
-    const sa = ls[i]
-    const age = (nowT - sa.t) / 60000
-    const x = mapX(age)
-    if (x === null) continue
-    let xRight
-    if (i === ls.length - 1) {
-      xRight = plot.right
-    } else {
-      const xr = mapX((nowT - ls[i + 1].t) / 60000)
-      xRight = xr === null ? plot.right : xr
+  if (!hideBars) {
+    for (let i = 0; i < ls.length; i++) {
+      const sa = ls[i]
+      const age = (nowT - sa.t) / 60000
+      const x = mapX(age)
+      if (x === null) continue
+      let xRight
+      if (i === ls.length - 1) {
+        xRight = plot.right
+      } else {
+        const xr = mapX((nowT - ls[i + 1].t) / 60000)
+        xRight = xr === null ? plot.right : xr
+      }
+      const bw = Math.max(1, xRight - x)
+      const y = yOf(sa.db)
+      ctx.fillStyle = dbToColor(sa.db, gMin, gMax)
+      ctx.fillRect(x, y, bw, plot.bottom - y)
     }
-    const bw = Math.max(1, xRight - x)
-    const y = yOf(sa.db)
-    ctx.fillStyle = dbToColor(sa.db, gMin, gMax)
-    ctx.fillRect(x, y, bw, plot.bottom - y)
   }
 
   // ---- overlay (recalled) sessions as lines; each is anchored so its end sits
