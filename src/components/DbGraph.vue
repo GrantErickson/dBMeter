@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { computeU, ageToFrac } from '../lib/timescale.js'
 import { dbToColor } from '../lib/color.js'
+import { fmtFreq } from '../lib/freq.js'
 
 const props = defineProps({
   liveSamples: { type: Array, default: () => [] },
@@ -10,6 +11,8 @@ const props = defineProps({
   settings: { type: Object, required: true },
   range: { type: Object, default: null }, // { min, max } effective dB scale
   isRunning: { type: Boolean, default: false },
+  freqSamples: { type: Object, default: () => ({}) }, // { [id]: [{ t, db }] }
+  showFreq: { type: Boolean, default: false }, // draw the frequency overlay?
 })
 
 const canvas = ref(null)
@@ -184,6 +187,55 @@ function draw() {
     }
     ctx.stroke()
     ctx.globalAlpha = 1
+  }
+
+  // ---- tracked-frequency lines ----
+  // Same timeline as the live data (shared timestamps, anchored at "now"), drawn
+  // only when the overlay is on. Each line is labelled with its frequency at the
+  // newest (right-hand) end.
+  if (props.showFreq) {
+    ctx.font = '10px system-ui, sans-serif'
+    for (const t of s.freqTracks || []) {
+      if (t.enabled === false) continue
+      const buf = props.freqSamples ? props.freqSamples[t.id] : null
+      if (!buf || !buf.length) continue
+      ctx.strokeStyle = t.color
+      ctx.lineWidth = 1.75
+      ctx.globalAlpha = 0.95
+      ctx.beginPath()
+      let started = false
+      let lastX = null
+      let lastY = null
+      for (const sa of buf) {
+        if (!Number.isFinite(sa.db)) {
+          started = false
+          continue
+        }
+        const age = (nowT - sa.t) / 60000
+        const x = mapX(age)
+        if (x === null) {
+          started = false
+          continue
+        }
+        const y = yOf(sa.db)
+        if (!started) {
+          ctx.moveTo(x, y)
+          started = true
+        } else {
+          ctx.lineTo(x, y)
+        }
+        lastX = x
+        lastY = y
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
+      if (lastX !== null) {
+        ctx.fillStyle = t.color
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(fmtFreq(t.freq), lastX - 2, lastY - 4)
+      }
+    }
   }
 
   // ---- frame ----

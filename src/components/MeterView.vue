@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import DbGraph from './DbGraph.vue'
 import { dbToColor } from '../lib/color.js'
+import { fmtFreq } from '../lib/freq.js'
 import { useFullscreen } from '../composables/useFullscreen.js'
 
 const {
@@ -19,8 +20,21 @@ const props = defineProps({
   isRunning: { type: Boolean, default: false },
   currentDb: { type: Number, default: -Infinity },
   peakDb: { type: Number, default: -Infinity },
+  freqSamples: { type: Object, default: () => ({}) }, // { [id]: [{ t, db }] }
+  currentFreqs: { type: Object, default: () => ({}) }, // { [id]: live dB }
 })
 const emit = defineEmits(['clear', 'reset-peak', 'toggle-mic'])
+
+// Tracked frequencies that should be drawn (enabled). Recording happens for all
+// of them regardless; this filter only governs the on-screen lines/chips.
+const enabledFreqTracks = computed(() =>
+  props.settings.freqTracks.filter((t) => t.enabled !== false)
+)
+
+function freqValText(id) {
+  const v = props.currentFreqs[id]
+  return Number.isFinite(v) ? v.toFixed(0) : '--'
+}
 
 const rng = computed(() =>
   props.range || { min: props.settings.graphMin, max: props.settings.maxDb }
@@ -75,6 +89,8 @@ const fill = computed(() => {
         :settings="settings"
         :range="rng"
         :is-running="isRunning"
+        :freq-samples="freqSamples"
+        :show-freq="settings.freqOverlayOn"
       />
 
       <!-- Landscape HUD readout (top-left over the graph) -->
@@ -127,6 +143,19 @@ const fill = computed(() => {
             />
           </svg>
         </button>
+        <button
+          v-if="settings.freqTracks.length"
+          class="hud-toggle"
+          :class="{ active: settings.freqOverlayOn }"
+          :title="
+            settings.freqOverlayOn
+              ? 'Hide frequency tracking'
+              : 'Show frequency tracking'
+          "
+          @click="settings.freqOverlayOn = !settings.freqOverlayOn"
+        >
+          Hz
+        </button>
         <div class="seg compact">
           <button
             :class="{ active: settings.mode === 'log' }"
@@ -154,6 +183,15 @@ const fill = computed(() => {
           :style="{ borderColor: o.color, color: o.color }"
           >{{ o.name }}</span
         >
+        <template v-if="settings.freqOverlayOn">
+          <span
+            v-for="t in enabledFreqTracks"
+            :key="'f' + t.id"
+            class="chip"
+            :style="{ borderColor: t.color, color: t.color }"
+            >{{ fmtFreq(t.freq) }} · {{ freqValText(t.id) }}</span
+          >
+        </template>
       </div>
     </div>
   </div>
@@ -288,6 +326,21 @@ const fill = computed(() => {
   font-size: 12px;
   font-weight: 600;
   min-height: 28px;
+}
+.hud-toggle {
+  border: none;
+  background: rgba(20, 26, 43, 0.85);
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  letter-spacing: 0.02em;
+}
+.hud-toggle.active {
+  background: var(--accent);
+  color: #fff;
 }
 .hud-icon {
   width: 28px;

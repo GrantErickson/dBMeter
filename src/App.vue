@@ -18,6 +18,7 @@ import {
   uid,
 } from "./lib/storage.js";
 import { OVERLAY_COLORS } from "./lib/color.js";
+import { freqTracksSig } from "./lib/freq.js";
 
 import TabBar from "./components/TabBar.vue";
 import MeterView from "./components/MeterView.vue";
@@ -42,6 +43,10 @@ const overlays = ref([]); // [{ id, name, color, startT, samples }]
 
 const liveSamples = ref([]);
 const liveStartT = ref(null);
+
+// Continuously recorded levels per tracked frequency: { [trackId]: [{ t, db }] }.
+// Always populated while the mic runs; only drawn when the overlay is on.
+const freqSamples = ref({});
 
 // First launch opens the Help screen; afterwards it goes straight to the graph.
 const activeTab = ref(helpSeenInitially ? "meter" : "help");
@@ -115,6 +120,9 @@ function buildConfig() {
     intervalSec: settings.intervalSec > 0 ? settings.intervalSec : 1,
     aggregation: settings.aggregation,
     calibration: appliedCalibration.value,
+    // All configured frequencies are recorded regardless of their enabled flag
+    // ("always recorded"); enabled only controls whether they're drawn.
+    freqTracks: settings.freqTracks.map((t) => ({ id: t.id, freq: t.freq })),
   };
 }
 
@@ -169,13 +177,32 @@ function checkIdle() {
   }
 }
 
-function onSample(s) {
-  liveSamples.value.push(s);
-  const cutoff = Date.now() - settings.maxTotalMin * 60000;
-  const arr = liveSamples.value;
+function trimOld(arr, cutoff) {
   let i = 0;
   while (i < arr.length && arr[i].t < cutoff) i++;
   if (i > 0) arr.splice(0, i);
+}
+
+function onSample(s) {
+  const cutoff = Date.now() - settings.maxTotalMin * 60000;
+
+  liveSamples.value.push({ t: s.t, db: s.db });
+  trimOld(liveSamples.value, cutoff);
+
+  // Append each tracked frequency's level to its own ring buffer (skipping
+  // non-finite levels, e.g. an as-yet-invalid frequency the user is editing).
+  if (s.freqs) {
+    for (const f of s.freqs) {
+      if (!Number.isFinite(f.db)) continue;
+      let buf = freqSamples.value[f.id];
+      if (!buf) {
+        buf = [];
+        freqSamples.value[f.id] = buf;
+      }
+      buf.push({ t: s.t, db: f.db });
+      trimOld(buf, cutoff);
+    }
+  }
 }
 
 watch(
@@ -252,9 +279,31 @@ function deleteSession(session) {
 
 function clearLive() {
   liveSamples.value = [];
+  freqSamples.value = {};
   liveStartT.value = meter.isRunning.value ? Date.now() : null;
   meter.resetPeak();
 }
+
+// When a tracked frequency is removed, or its frequency changes (which makes
+// older samples belong to a different band), drop its now-stale buffer. New
+// tracks get a buffer lazily on their first sample.
+let freqMeta = Object.fromEntries(
+  settings.freqTracks.map((t) => [t.id, t.freq]),
+);
+watch(
+  () => freqTracksSig(settings.freqTracks),
+  () => {
+    const current = Object.fromEntries(
+      settings.freqTracks.map((t) => [t.id, t.freq]),
+    );
+    for (const id of Object.keys(freqSamples.value)) {
+      if (!(id in current) || current[id] !== freqMeta[id]) {
+        delete freqSamples.value[id];
+      }
+    }
+    freqMeta = current;
+  },
+);
 
 const showGate = computed(
   () =>
@@ -290,6 +339,8 @@ const showIdleResume = computed(
         :is-running="meter.isRunning.value"
         :current-db="meter.currentDb.value"
         :peak-db="meter.peakDb.value"
+        :freq-samples="freqSamples"
+        :current-freqs="meter.currentFreqs.value"
         @clear="clearLive"
         @reset-peak="meter.resetPeak()"
         @toggle-mic="toggleMic"

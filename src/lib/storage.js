@@ -1,7 +1,20 @@
 // All persistence goes through localStorage. Settings + saved sessions.
 
+import { FREQ_COLORS } from './color.js'
+
 const SETTINGS_KEY = 'dbmeter.settings.v1'
 const SESSIONS_KEY = 'dbmeter.sessions.v1'
+
+// Default tracked frequencies: five ISO octave-band centres spaced two octaves
+// apart, spanning the spectrum the way an audio engineer would monitor it —
+// sub-bass/power, low-mid body, the 1 kHz reference, presence, and air.
+const DEFAULT_FREQ_TRACKS = [
+  { id: 'def-63', freq: 63, color: FREQ_COLORS[0], enabled: true }, // power / hum
+  { id: 'def-250', freq: 250, color: FREQ_COLORS[1], enabled: true }, // low-mid body
+  { id: 'def-1k', freq: 1000, color: FREQ_COLORS[2], enabled: true }, // midrange ref
+  { id: 'def-4k', freq: 4000, color: FREQ_COLORS[3], enabled: true }, // presence
+  { id: 'def-16k', freq: 16000, color: FREQ_COLORS[4], enabled: true }, // air
+]
 
 export const DEFAULT_SETTINGS = {
   weighting: 'A', // 'A' | 'B' | 'Z'
@@ -13,6 +26,10 @@ export const DEFAULT_SETTINGS = {
   autoMode: true, // true = uncalibrated + auto-scaling graph range (relative)
   graphMin: 30, // bottom of the dB scale / green floor (used when calibrated)
   maxDb: 100, // top of the dB scale / red threshold (used when calibrated)
+  freqOverlayOn: false, // master on/off for the tracked-frequency line overlay
+  // Up to MAX_FREQ_TRACKS entries: { id, freq (Hz), color, enabled }.
+  // Always recorded by the meter; only drawn when freqOverlayOn and enabled.
+  freqTracks: structuredClone(DEFAULT_FREQ_TRACKS),
   calibration: {
     points: [
       { raw: null, known: null }, // quiet reference

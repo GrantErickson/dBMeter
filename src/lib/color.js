@@ -17,3 +17,23 @@ export const OVERLAY_COLORS = [
   '#f7768e',
   '#e0d96a',
 ]
+
+// Distinct colours for tracked-frequency lines. Kept visually separate from the
+// session OVERLAY_COLORS so the two kinds of line are easy to tell apart when
+// both are shown at once.
+export const FREQ_COLORS = [
+  '#ffd166', // amber
+  '#06d6a0', // teal
+  '#ef476f', // rose
+  '#4cc9f0', // sky
+  '#b388ff', // lavender
+]
+
+// Pick the first FREQ_COLOR not already in `used`, falling back to cycling.
+export function nextFreqColor(used) {
+  const taken = new Set(used)
+  return (
+    FREQ_COLORS.find((c) => !taken.has(c)) ||
+    FREQ_COLORS[(used.length || 0) % FREQ_COLORS.length]
+  )
+}

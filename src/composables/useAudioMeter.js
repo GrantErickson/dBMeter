@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { weightingDb } from '../lib/weighting.js'
 import { applyCalibration } from '../lib/calibration.js'
+import { freqTracksSig } from '../lib/freq.js'
 
 // Captures the microphone and produces a continuously time-weighted dB value
 // plus aggregated samples (one per sampling interval) via an onSample callback.
@@ -20,6 +21,8 @@ export function useAudioMeter() {
   const currentDb = ref(-Infinity) // calibrated, time-weighted
   const currentRaw = ref(-Infinity) // uncalibrated (for calibration capture)
   const peakDb = ref(-Infinity)
+  // Live, time-weighted level per tracked frequency: { [trackId]: dB }.
+  const currentFreqs = ref({})
   const error = ref('')
 
   let audioCtx = null
@@ -35,6 +38,10 @@ export function useAudioMeter() {
   let accum = null
   let cfg = null
   let onSampleCb = null
+  // Per-tracked-frequency state, parallel to cfg.freqTracks. Each entry holds
+  // the FFT bin window for the frequency plus its own smoothing + interval
+  // accumulators, mirroring the broadband pipeline above.
+  let freqState = []
 
   function computeWeights() {
     const n = analyser.frequencyBinCount
@@ -45,8 +52,56 @@ export function useAudioMeter() {
     }
   }
 
+  // Build the bin window for each tracked frequency. We sum power across a
+  // narrow band (~±3%, at least one bin) so a tone falling between bins is still
+  // captured. Frequencies above Nyquist (or invalid) are marked lo = -1.
+  //
+  // Bands whose id + frequency are unchanged keep their existing smoothing and
+  // in-progress interval accumulators, so editing one frequency doesn't disturb
+  // the others' lines. Live values for removed tracks are pruned.
+  function buildFreqState() {
+    const tracks = (cfg && cfg.freqTracks) || []
+    const n = analyser.frequencyBinCount
+    const binWidth = audioCtx.sampleRate / analyser.fftSize
+    const prev = new Map(freqState.map((fs) => [fs.id, fs]))
+    freqState = tracks.map((t) => {
+      const f = t.freq
+      const kept = prev.get(t.id)
+      if (kept && kept.freq === f) return kept // same band – preserve its state
+      let lo = -1
+      let hi = -1
+      if (Number.isFinite(f) && f > 0) {
+        const bw = Math.max(binWidth, f * 0.03)
+        lo = Math.max(1, Math.round((f - bw) / binWidth))
+        hi = Math.min(n - 1, Math.round((f + bw) / binWidth))
+        if (lo > n - 1) {
+          lo = -1 // above Nyquist – nothing to measure
+          hi = -1
+        } else if (hi < lo) {
+          hi = lo
+        }
+      }
+      return { id: t.id, freq: f, lo, hi, smoothedPower: 0, sumPower: 0, count: 0, maxDb: -Infinity }
+    })
+    // Drop live readouts for frequencies that no longer exist.
+    const live = {}
+    for (const fs of freqState) {
+      if (fs.id in currentFreqs.value) live[fs.id] = currentFreqs.value[fs.id]
+    }
+    currentFreqs.value = live
+  }
+
+  function resetFreqAccum() {
+    for (const fs of freqState) {
+      fs.sumPower = 0
+      fs.count = 0
+      fs.maxDb = -Infinity
+    }
+  }
+
   function resetAccum(t) {
     accum = { startT: t, sumPower: 0, count: 0, maxDb: -Infinity }
+    resetFreqAccum()
   }
 
   async function start(config, onSample) {
@@ -94,6 +149,11 @@ export function useAudioMeter() {
 
     smoothedPower = 0
     peakDb.value = -Infinity
+    // Start each mic session with fresh band state (no carry-over from a prior
+    // run); buildFreqState's preservation only applies to live config edits.
+    currentFreqs.value = {}
+    freqState = []
+    buildFreqState()
     lastT = performance.now()
     resetAccum(lastT)
     isRunning.value = true
@@ -134,6 +194,29 @@ export function useAudioMeter() {
     accum.count += 1
     if (calDb > accum.maxDb) accum.maxDb = calDb
 
+    // ---- tracked frequencies ----
+    // Band level around each frequency, with the same time smoothing and
+    // calibration as the broadband reading, but no frequency weighting (we want
+    // the true level at that exact frequency, not its perceptual contribution).
+    for (const fs of freqState) {
+      if (fs.lo < 0) {
+        currentFreqs.value[fs.id] = -Infinity
+        continue
+      }
+      let p = 0
+      for (let i = fs.lo; i <= fs.hi; i++) {
+        const b = freqData[i]
+        if (b === -Infinity || b < -160) continue
+        p += Math.pow(10, b / 10)
+      }
+      fs.smoothedPower += alpha * (p - fs.smoothedPower)
+      const fCal = applyCalibration(10 * Math.log10(fs.smoothedPower + 1e-12), cfg.calibration)
+      currentFreqs.value[fs.id] = fCal
+      fs.sumPower += fs.smoothedPower
+      fs.count += 1
+      if (fCal > fs.maxDb) fs.maxDb = fCal
+    }
+
     if (t - accum.startT >= cfg.intervalSec * 1000) {
       let db
       if (cfg.aggregation === 'max') {
@@ -142,17 +225,31 @@ export function useAudioMeter() {
         const avgPower = accum.sumPower / Math.max(1, accum.count)
         db = applyCalibration(10 * Math.log10(avgPower + 1e-12), cfg.calibration)
       }
-      if (onSampleCb) onSampleCb({ t: Date.now(), db })
+      const freqs = freqState.map((fs) => {
+        if (fs.lo < 0) return { id: fs.id, db: -Infinity }
+        if (cfg.aggregation === 'max') return { id: fs.id, db: fs.maxDb }
+        const avgPower = fs.sumPower / Math.max(1, fs.count)
+        return {
+          id: fs.id,
+          db: applyCalibration(10 * Math.log10(avgPower + 1e-12), cfg.calibration),
+        }
+      })
+      if (onSampleCb) onSampleCb({ t: Date.now(), db, freqs })
       resetAccum(t)
     }
   }
 
-  // Live update of settings while running (weighting recomputes the curve).
+  // Live update of settings while running (weighting recomputes the curve;
+  // changing the tracked frequencies rebuilds their bin windows).
   function updateConfig(config) {
     const prevWeighting = cfg ? cfg.weighting : null
+    const prevFreqSig = freqTracksSig(cfg && cfg.freqTracks)
     cfg = { ...cfg, ...config }
     if (analyser && config.weighting && config.weighting !== prevWeighting) {
       computeWeights()
+    }
+    if (analyser && freqTracksSig(cfg.freqTracks) !== prevFreqSig) {
+      buildFreqState()
     }
   }
 
@@ -181,6 +278,7 @@ export function useAudioMeter() {
     currentDb,
     currentRaw,
     peakDb,
+    currentFreqs,
     error,
     start,
     stop,

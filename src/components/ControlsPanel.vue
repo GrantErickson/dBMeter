@@ -1,5 +1,8 @@
 <script setup>
 import { WEIGHTINGS } from '../lib/weighting.js'
+import { uid } from '../lib/storage.js'
+import { nextFreqColor } from '../lib/color.js'
+import { MAX_FREQ_TRACKS, MIN_FREQ, MAX_FREQ } from '../lib/freq.js'
 
 // `section` lets the same control set back two separate tab screens:
 //   'measurement' -> mic / weighting / response / interval
@@ -10,6 +13,21 @@ const props = defineProps({
   isRunning: { type: Boolean, default: false },
 })
 const emit = defineEmits(['toggle-mic'])
+
+function addFreqTrack() {
+  const tracks = props.settings.freqTracks
+  if (tracks.length >= MAX_FREQ_TRACKS) return
+  tracks.push({
+    id: uid(),
+    freq: 1000,
+    color: nextFreqColor(tracks.map((t) => t.color)),
+    enabled: true,
+  })
+}
+
+function removeFreqTrack(i) {
+  props.settings.freqTracks.splice(i, 1)
+}
 </script>
 
 <template>
@@ -133,6 +151,53 @@ const emit = defineEmits(['toggle-mic'])
         Logarithmic mode keeps the most recent 2 minutes at 50% width and
         compresses older history out to the timeline length.
       </p>
+
+      <h2>Frequency tracking</h2>
+      <p class="hint">
+        Track the level of up to {{ MAX_FREQ_TRACKS }} specific frequencies.
+        They are always recorded; switch the overlay on with the
+        <b>Hz</b> button on the graph to draw them as lines. Use the coloured
+        dot to show or hide an individual frequency.
+      </p>
+      <ul class="freq-list">
+        <li v-if="!settings.freqTracks.length" class="freq-empty">
+          No frequencies yet — add one below.
+        </li>
+        <li v-for="(t, i) in settings.freqTracks" :key="t.id">
+          <button
+            class="freq-dot"
+            :class="{ on: t.enabled !== false }"
+            :style="
+              t.enabled !== false
+                ? { background: t.color, borderColor: t.color }
+                : { borderColor: t.color }
+            "
+            :title="t.enabled !== false ? 'Shown when overlay is on' : 'Hidden'"
+            @click="t.enabled = t.enabled === false"
+          ></button>
+          <div class="inline freq-input">
+            <input
+              class="num"
+              type="number"
+              :min="MIN_FREQ"
+              :max="MAX_FREQ"
+              step="1"
+              v-model.number="t.freq"
+            />
+            <span class="suffix">Hz</span>
+          </div>
+          <button class="freq-del" title="Remove" @click="removeFreqTrack(i)">
+            ✕
+          </button>
+        </li>
+      </ul>
+      <button
+        class="add-freq"
+        :disabled="settings.freqTracks.length >= MAX_FREQ_TRACKS"
+        @click="addFreqTrack"
+      >
+        + Add frequency
+      </button>
     </template>
   </div>
 </template>
@@ -202,5 +267,64 @@ label {
   opacity: 0.55;
   line-height: 1.45;
   margin: 4px 0 0;
+}
+
+/* ----- frequency tracking ----- */
+.freq-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.freq-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.freq-empty {
+  opacity: 0.5;
+  font-size: 13px;
+}
+.freq-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+.freq-input {
+  flex: 1;
+}
+.freq-del {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px 8px;
+}
+.freq-del:hover {
+  opacity: 1;
+  color: #ff6b81;
+}
+.add-freq {
+  align-self: flex-start;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: inherit;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 14px;
+  margin-top: 8px;
+}
+.add-freq:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

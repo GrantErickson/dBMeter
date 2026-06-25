@@ -121,6 +121,31 @@ const isStandalone =
       </section>
 
       <section>
+        <h2>Tracking specific frequencies</h2>
+        <ul>
+          <li>
+            On <b>Options</b>, add up to five frequencies (in Hz) to follow
+            individually — for example a 50/60 Hz hum, a 1 kHz tone, or a
+            whine you're chasing down.
+          </li>
+          <li>
+            They are <b>always recorded</b> while the mic runs. Tap the
+            <b>Hz</b> button on the graph to overlay them as coloured lines, and
+            tap it again to hide them. Each line is labelled with its frequency.
+          </li>
+          <li>
+            Use the coloured dot next to a frequency on Options to show or hide
+            that one line without affecting the others.
+          </li>
+          <li>
+            A single frequency carries far less energy than the whole sound, so
+            its line normally sits below the broadband level — it rises when that
+            frequency gets louder.
+          </li>
+        </ul>
+      </section>
+
+      <section>
         <h2>Saving &amp; comparing</h2>
         <ul>
           <li>On the <b>Saved</b> screen, name and save the current measurement.</li>
