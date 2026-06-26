@@ -30,6 +30,12 @@ let ro = null
 const F_MIN = 20 // Hz, low edge of the frequency axis
 const FLOOR = -140 // dBFS floor for empty bins / "no data"
 const NUM_BUCKETS = 15 // sub-buckets used to compute the rolling recent peak
+const LABEL_H = 18 // px reserved below the plot for frequency labels
+
+// Keyboard height (landscape only); 0 in portrait so no keyboard is drawn.
+function pianoHeightFor(w, h) {
+  return w > h ? Math.min(72, Math.max(44, h * 0.16)) : 0
+}
 
 // Per-bin buffers (allocated once we know the analyser's bin count).
 let buf = null // latest raw dBFS
@@ -47,14 +53,23 @@ let lastInfo = null // last analyser config, reused to render while paused
 const dominant = ref(null) // { name, freq } | null
 let domKey = '' // limits dominant.value writes to actual changes
 
-// Tap-to-play keyboard.
-let playCtx = null // dedicated output context (created on first tap)
+// Tap / slide to play the keyboard.
+let playCtx = null // dedicated output context (created on first press)
 let pianoKeys = [] // hit-test rects, rebuilt each frame by drawPiano
-let pressedMidi = null // briefly highlights a tapped key
-let pressTimer = null
+let pressedMidi = null // the key currently held / slid to (highlighted)
+let voice = null // the single sounding voice, or null
+let sliding = false // a press is in progress (track pointer moves)
+
+// Distance of the bottom legend pills from the bottom edge: lifted above the
+// keyboard + frequency labels in landscape so the pills stay over the graph.
+const footBottom = ref(6)
 
 function resize() {
-  if (canvas.value) resizeCanvasToDpr(canvas.value, ctx)
+  const c = canvas.value
+  if (!c) return
+  resizeCanvasToDpr(c, ctx)
+  const ph = pianoHeightFor(c.clientWidth, c.clientHeight)
+  footBottom.value = ph > 0 ? ph + LABEL_H + 6 : 6
 }
 
 function allocate(n) {
@@ -101,7 +116,7 @@ function updatePeaks() {
 
   // Bars rise instantly but fall with a configurable time constant ("fade out"),
   // which also lets the highlighted note linger as it decays.
-  const decaySec = Math.max(0.05, props.settings.spectrumDecaySec || 1)
+  const decaySec = Math.max(0.05, props.settings.spectrumDecaySec || 2)
   const release = 1 - Math.exp(-dt / decaySec)
 
   // Roll the bucket ring forward; clearing each newly-current bucket drops data
@@ -172,8 +187,8 @@ function draw() {
   const padL = 46
   const padR = 12
   const padT = 12
-  const labelH = 18
-  const pianoH = landscape ? Math.min(72, Math.max(44, h * 0.16)) : 0
+  const labelH = LABEL_H
+  const pianoH = pianoHeightFor(w, h)
   const plot = {
     left: padL,
     right: w - padR,
@@ -378,51 +393,135 @@ function drawPiano(top, bottom, xOf, fMax, domMidi) {
   }
 }
 
-// Play a short note through a dedicated output context (the mic context is
-// never connected to the speakers). Created lazily on the first tap, which is
-// the user gesture browsers require to start audio output.
-function playNote(midi) {
+// The keyboard plays through a dedicated output context (the mic context is
+// never connected to the speakers), created lazily on the first press — the
+// user gesture browsers require to start audio output.
+function ensurePlayCtx() {
+  if (!playCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    playCtx = new Ctx()
+  }
+  if (playCtx.state === 'suspended') playCtx.resume().catch(() => {})
+  return playCtx
+}
+
+// Shape a freshly "struck" key on the current voice: a percussive (hammer)
+// attack, a quick initial decay then a long ringing tail, plus a brightness
+// sweep that mellows — roughly a piano's amplitude + timbre envelope.
+function strike(midi, t) {
+  const f = midiToFreq(midi)
+  voice.osc1.frequency.setValueAtTime(f, t)
+  voice.osc2.frequency.setValueAtTime(f * 2, t)
+  const g = voice.env.gain
+  g.cancelScheduledValues(t)
+  g.setValueAtTime(0.0001, t)
+  g.exponentialRampToValueAtTime(0.3, t + 0.005)
+  g.exponentialRampToValueAtTime(0.08, t + 0.35)
+  g.exponentialRampToValueAtTime(0.0002, t + 3)
+  const lp = voice.filter.frequency
+  lp.cancelScheduledValues(t)
+  lp.setValueAtTime(Math.min(9000, f * 9), t)
+  lp.exponentialRampToValueAtTime(Math.max(700, f * 2.5), t + 0.5)
+}
+
+function startVoice(midi) {
+  const ac = ensurePlayCtx()
+  const osc1 = ac.createOscillator()
+  osc1.type = 'triangle'
+  const osc2 = ac.createOscillator()
+  osc2.type = 'sine' // octave partial adds a little brightness/body
+  const partial2 = ac.createGain()
+  partial2.gain.value = 0.35
+  const filter = ac.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.Q.value = 0.7
+  const env = ac.createGain()
+  env.gain.value = 0.0001
+  osc1.connect(env)
+  osc2.connect(partial2).connect(env)
+  env.connect(filter).connect(ac.destination)
+  voice = { osc1, osc2, env, filter }
+  osc1.start()
+  osc2.start()
+  strike(midi, ac.currentTime)
+}
+
+// Sound a note, retriggering the existing voice when sliding to a new key.
+function changeNote(midi) {
   try {
-    if (!playCtx) {
-      const Ctx = window.AudioContext || window.webkitAudioContext
-      playCtx = new Ctx()
-    }
-    if (playCtx.state === 'suspended') playCtx.resume().catch(() => {})
-    const t = playCtx.currentTime
-    const dur = 0.7
-    const osc = playCtx.createOscillator()
-    const g = playCtx.createGain()
-    osc.type = 'triangle'
-    osc.frequency.value = midiToFreq(midi)
-    g.gain.setValueAtTime(0.0001, t)
-    g.gain.exponentialRampToValueAtTime(0.22, t + 0.01)
-    g.gain.exponentialRampToValueAtTime(0.0008, t + dur)
-    osc.connect(g).connect(playCtx.destination)
-    osc.start(t)
-    osc.stop(t + dur + 0.05)
+    if (!voice) startVoice(midi)
+    else strike(midi, playCtx.currentTime)
   } catch {
     /* output unavailable */
   }
 }
 
-function onPointerDown(e) {
-  if (!pianoKeys.length) return // no keyboard (portrait) -> ignore
+// Let the current note ring out, then stop its oscillators.
+function releaseVoice() {
+  if (!voice || !playCtx) return
+  const v = voice
+  voice = null
+  try {
+    const t = playCtx.currentTime
+    const g = v.env.gain
+    g.cancelScheduledValues(t)
+    g.setValueAtTime(Math.max(0.0002, g.value), t)
+    g.exponentialRampToValueAtTime(0.0002, t + 0.25)
+    v.osc1.stop(t + 0.3)
+    v.osc2.stop(t + 0.3)
+  } catch {
+    /* ignore */
+  }
+}
+
+// Which key (if any) is under the pointer; black keys win since they're on top.
+function keyAt(e) {
+  if (!pianoKeys.length || !canvas.value) return null
   const r = canvas.value.getBoundingClientRect()
   const px = e.clientX - r.left
   const py = e.clientY - r.top
   const inside = (k) =>
     px >= k.left && px <= k.right && py >= k.top && py <= k.bottom
-  // Black keys are drawn on top, so test them first.
-  let hit = pianoKeys.find((k) => k.black && inside(k))
-  if (!hit) hit = pianoKeys.find((k) => !k.black && inside(k))
+  return (
+    pianoKeys.find((k) => k.black && inside(k)) ||
+    pianoKeys.find((k) => !k.black && inside(k)) ||
+    null
+  )
+}
+
+function onPointerDown(e) {
+  const hit = keyAt(e)
   if (!hit) return
-  playNote(hit.midi)
+  sliding = true
   pressedMidi = hit.midi
-  if (pressTimer) clearTimeout(pressTimer)
-  pressTimer = setTimeout(() => {
-    pressedMidi = null
-    pressTimer = null
-  }, 220)
+  changeNote(hit.midi)
+  // Capture so a slide keeps tracking even if it strays off the keys.
+  try {
+    canvas.value.setPointerCapture(e.pointerId)
+  } catch {
+    /* ignore */
+  }
+}
+
+function onPointerMove(e) {
+  if (!sliding) return
+  const hit = keyAt(e)
+  if (hit && hit.midi !== pressedMidi) {
+    pressedMidi = hit.midi
+    changeNote(hit.midi)
+  }
+}
+
+function onPointerUp(e) {
+  if (!sliding) return
+  sliding = false
+  pressedMidi = null
+  releaseVoice()
+  try {
+    canvas.value.releasePointerCapture(e.pointerId)
+  } catch {
+    /* ignore */
+  }
 }
 
 function loop() {
@@ -455,7 +554,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf)
   if (ro) ro.disconnect()
-  if (pressTimer) clearTimeout(pressTimer)
+  releaseVoice()
   if (playCtx) {
     try {
       playCtx.close()
@@ -475,6 +574,9 @@ onBeforeUnmount(() => {
         role="img"
         aria-label="Live frequency spectrum analyser"
         @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @pointercancel="onPointerUp"
       ></canvas>
 
       <!-- Dominant-note readout (top-left over the graph) -->
@@ -492,8 +594,8 @@ onBeforeUnmount(() => {
         <button class="clear" title="Reset peak hold" @click="clearPeaks">Clear</button>
       </div>
 
-      <!-- Legend / status (bottom-left) -->
-      <div class="hud-foot">
+      <!-- Legend / status (bottom-left; lifted above the keyboard in landscape) -->
+      <div class="hud-foot" :style="{ bottom: footBottom + 'px' }">
         <span v-if="!isRunning" class="paused">● mic paused</span>
         <span class="chip all">peak</span>
         <span class="chip recent">recent</span>
@@ -519,6 +621,8 @@ canvas {
   height: 100%;
   display: block;
   border-radius: 10px;
+  /* keep keyboard slides from scrolling/zooming the page on touch */
+  touch-action: none;
 }
 
 .hud-readout {
