@@ -47,6 +47,16 @@ onBeforeUnmount(() => {
   if (flashTimer) clearTimeout(flashTimer)
 })
 
+// Collapsible sections: the screen opens as a short, scannable list of titles
+// (the first one expanded) so it isn't a wall of text. Tap a heading to expand.
+const open = ref({ graph: true })
+function isOpen(k) {
+  return !!open.value[k]
+}
+function toggle(k) {
+  open.value[k] = !open.value[k]
+}
+
 // Platform detection for install / full-screen guidance (evaluated on mount).
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
 const touchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints || 0 : 0
@@ -88,8 +98,16 @@ const isStandalone =
         uploaded, and your settings and saved measurements stay on this device.
       </p>
 
-      <section>
-        <h2>Reading the graph</h2>
+      <section class="acc" :class="{ open: isOpen('graph') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('graph')" @click="toggle('graph')">
+            <span>Reading the graph</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('graph')">
         <ul>
           <li>
             The big number is the current level. Bars are coloured
@@ -105,10 +123,19 @@ const isStandalone =
           <li>Tap the <b>peak</b> value to reset peak-hold.</li>
           <li><b>Clear</b> wipes the graph and starts fresh (settings are kept).</li>
         </ul>
+        </div>
       </section>
 
-      <section>
-        <h2>Settings</h2>
+      <section class="acc" :class="{ open: isOpen('settings') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('settings')" @click="toggle('settings')">
+            <span>Settings</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('settings')">
         <ul>
           <li><b>Calibration</b> sits at the top — switch between Auto and Calibrated and capture reference points there.</li>
           <li><b>Weighting</b> — A and B mimic how loud sound seems to people; Z is flat/unweighted.</li>
@@ -117,10 +144,19 @@ const isStandalone =
           <li><b>Timeline length</b> and the <b>Min / Max</b> scale (which also drives the colours).</li>
           <li>Pause or resume the microphone from the Settings screen at any time.</li>
         </ul>
+        </div>
       </section>
 
-      <section>
-        <h2>Spectrum analyser</h2>
+      <section class="acc" :class="{ open: isOpen('spectrum') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('spectrum')" @click="toggle('spectrum')">
+            <span>Spectrum analyser</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('spectrum')">
         <ul>
           <li>
             The <b>Spectrum</b> tab shows a live frequency analyser — bars across
@@ -141,10 +177,19 @@ const isStandalone =
             the highlighted note) fall away after a sound stops.
           </li>
         </ul>
+        </div>
       </section>
 
-      <section>
-        <h2>Auto mode vs. calibrated</h2>
+      <section class="acc" :class="{ open: isOpen('autocal') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('autocal')" @click="toggle('autocal')">
+            <span>Auto mode vs. calibrated</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('autocal')">
         <ul>
           <li>
             <b>Auto</b> (the default, until you calibrate) shows
@@ -163,10 +208,19 @@ const isStandalone =
             <b>Auto</b> button to turn it back off.
           </li>
         </ul>
+        </div>
       </section>
 
-      <section class="calib">
-        <h2>Calibrating to real dB SPL</h2>
+      <section class="acc accent" :class="{ open: isOpen('calibrate') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('calibrate')" @click="toggle('calibrate')">
+            <span>Calibrating to real dB SPL</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('calibrate')">
         <p>
           Calibration maps the raw reading onto a real scale using one or two
           reference points. (Skip this if you're happy with relative levels in
@@ -201,10 +255,19 @@ const isStandalone =
           everything by a fixed offset. Re-calibrate if you change device,
           microphone, or weighting. Keep the mic unobstructed during measurement.
         </p>
+        </div>
       </section>
 
-      <section>
-        <h2>Tracking specific frequencies</h2>
+      <section class="acc" :class="{ open: isOpen('freqs') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('freqs')" @click="toggle('freqs')">
+            <span>Tracking specific frequencies</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('freqs')">
         <ul>
           <li>
             On <b>Settings</b>, add up to five frequencies (in Hz) to follow
@@ -232,10 +295,19 @@ const isStandalone =
             frequency gets louder.
           </li>
         </ul>
+        </div>
       </section>
 
-      <section>
-        <h2>Saving &amp; comparing</h2>
+      <section class="acc" :class="{ open: isOpen('saving') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('saving')" @click="toggle('saving')">
+            <span>Saving &amp; comparing</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('saving')">
         <ul>
           <li>On the <b>Saved</b> screen, name and save the current measurement.</li>
           <li>
@@ -244,10 +316,19 @@ const isStandalone =
             the running session.
           </li>
         </ul>
+        </div>
       </section>
 
-      <section class="install">
-        <h2>Full screen &amp; running as an app</h2>
+      <section class="acc" :class="{ open: isOpen('install') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('install')" @click="toggle('install')">
+            <span>Full screen &amp; running as an app</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('install')">
 
         <p v-if="isStandalone">
           You're running dB Meter as an installed app — the address bar is
@@ -287,10 +368,19 @@ const isStandalone =
           install dB Meter from your browser's menu (<b>Install</b> / <b>Add to
           Home Screen</b>) to run it in its own window.
         </p>
+        </div>
       </section>
 
-      <section>
-        <h2>Good to know</h2>
+      <section class="acc" :class="{ open: isOpen('good') }">
+        <h2 class="acc-head">
+          <button class="acc-btn" :aria-expanded="isOpen('good')" @click="toggle('good')">
+            <span>Good to know</span>
+            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </h2>
+        <div class="acc-body" v-show="isOpen('good')">
         <ul>
           <li>Microphone access needs a secure page (HTTPS) or localhost, and your permission.</li>
           <li>The app keeps measuring while you switch tabs or rotate the device.</li>
@@ -301,6 +391,7 @@ const isStandalone =
           </li>
           <li>In landscape the graph fills the screen with the reading on top.</li>
         </ul>
+        </div>
       </section>
 
       <button class="cta" @click="emit('close')">
@@ -380,15 +471,46 @@ const isStandalone =
   opacity: 0.85;
   margin: 0 0 8px;
 }
-section {
-  margin-top: 18px;
+/* ----- collapsible sections (accordion) ----- */
+.acc {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
-h2 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.55;
-  margin: 0 0 8px;
+.acc:last-of-type {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.acc-head {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.acc-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 15px 2px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.acc.accent .acc-btn {
+  color: #9ab4ff;
+}
+.chev {
+  flex: none;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+.acc.open .chev {
+  transform: rotate(180deg);
+}
+.acc-body {
+  padding: 0 2px 16px;
 }
 ul,
 ol {
@@ -405,16 +527,6 @@ p {
   line-height: 1.55;
   opacity: 0.9;
   margin: 0 0 8px;
-}
-.calib {
-  background: rgba(59, 108, 255, 0.1);
-  border: 1px solid rgba(59, 108, 255, 0.3);
-  border-radius: 12px;
-  padding: 14px 16px;
-}
-.calib h2 {
-  color: #9ab4ff;
-  opacity: 0.95;
 }
 .note {
   font-size: 13px;
