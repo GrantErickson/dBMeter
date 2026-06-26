@@ -118,8 +118,8 @@ function removeFreqTrack(i) {
       <h2>Scale &amp; colour</h2>
       <p v-if="settings.autoMode" class="hint">
         Auto mode is on — the graph scale follows the quietest and loudest sounds
-        heard. These values apply once you switch to Calibrated mode on the
-        Calibrate screen.
+        heard. These values apply once you switch to Calibrated mode using the
+        Calibration controls at the top of this page.
       </p>
       <div class="row">
         <label>Min (green)</label>
@@ -198,6 +198,54 @@ function removeFreqTrack(i) {
       >
         + Add frequency
       </button>
+
+      <h2>Spectrum</h2>
+      <p class="hint">
+        The Spectrum tab shows a live frequency analyser. It holds two peak
+        lines: the loudest level each frequency has reached since you cleared it,
+        and the loudest within a recent window.
+      </p>
+      <div class="row">
+        <label>Recent peak window</label>
+        <div class="inline">
+          <input
+            class="num"
+            type="number"
+            min="1"
+            max="120"
+            step="1"
+            v-model.number="settings.spectrumPeakSec"
+          />
+          <span class="suffix">s</span>
+        </div>
+      </div>
+      <div class="row">
+        <label>Note fade-out</label>
+        <div class="inline">
+          <input
+            class="num"
+            type="number"
+            min="0.1"
+            max="10"
+            step="0.1"
+            v-model.number="settings.spectrumDecaySec"
+          />
+          <span class="suffix">s</span>
+        </div>
+      </div>
+      <div class="row">
+        <label>Bars per note</label>
+        <div class="seg">
+          <button
+            v-for="n in 4"
+            :key="n"
+            :class="{ active: (settings.spectrumBarsPerNote || 2) === n }"
+            @click="settings.spectrumBarsPerNote = n"
+          >
+            {{ n }}
+          </button>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -209,11 +257,14 @@ function removeFreqTrack(i) {
   gap: 12px;
 }
 h2 {
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.5;
-  margin: 8px 0 0;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #9ab4ff;
+  margin: 22px 0 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 .row {
   display: flex;

@@ -257,6 +257,25 @@ export function useAudioMeter() {
     peakDb.value = -Infinity
   }
 
+  // ---- raw spectrum access (for the spectrum analyser view) ----
+  // The analyser is owned here, so the spectrum view reads it through these:
+  // spectrumInfo() reports the buffer size needed (null when the mic is off),
+  // and readSpectrum(out) fills the caller's own Float32Array with per-bin dBFS.
+  function spectrumInfo() {
+    if (!analyser || !audioCtx) return null
+    return {
+      binCount: analyser.frequencyBinCount,
+      fftSize: analyser.fftSize,
+      sampleRate: audioCtx.sampleRate,
+    }
+  }
+
+  function readSpectrum(out) {
+    if (!analyser || !out) return false
+    analyser.getFloatFrequencyData(out)
+    return true
+  }
+
   function stop() {
     if (timer) {
       clearInterval(timer)
@@ -284,5 +303,7 @@ export function useAudioMeter() {
     stop,
     updateConfig,
     resetPeak,
+    spectrumInfo,
+    readSpectrum,
   }
 }

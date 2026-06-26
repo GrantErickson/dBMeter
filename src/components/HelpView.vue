@@ -50,13 +50,38 @@ const isStandalone =
       </section>
 
       <section>
-        <h2>Options</h2>
+        <h2>Settings</h2>
         <ul>
+          <li><b>Calibration</b> sits at the top — switch between Auto and Calibrated and capture reference points there.</li>
           <li><b>Weighting</b> — A and B mimic how loud sound seems to people; Z is flat/unweighted.</li>
           <li><b>Time response</b> — Fast (125 ms) reacts quickly; Slow (1 s) is smoother.</li>
           <li><b>Interval value</b> — each point is the Average (Leq) or the Max over the sampling interval.</li>
           <li><b>Timeline length</b> and the <b>Min / Max</b> scale (which also drives the colours).</li>
-          <li>Pause or resume the microphone from the Options screen at any time.</li>
+          <li>Pause or resume the microphone from the Settings screen at any time.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Spectrum analyser</h2>
+        <ul>
+          <li>
+            The <b>Spectrum</b> tab shows a live frequency analyser — bars across
+            the audio range, coloured by level just like the main graph.
+          </li>
+          <li>
+            Two peak-hold lines ride on top: the <b style="color: #ff6b81">peak</b>
+            since you last cleared it, and the <b>recent</b> peak within a window
+            you set on Settings (default 15 s). Tap <b>Clear</b> to reset them.
+          </li>
+          <li>
+            In landscape a <b>piano keyboard</b> appears along the bottom and
+            highlights the note matching the loudest frequency; its name and
+            frequency show at the top-left. <b>Tap a key</b> to play that note.
+          </li>
+          <li>
+            <b>Note fade-out</b> on Settings controls how slowly the bars (and
+            the highlighted note) fall away after a sound stops.
+          </li>
         </ul>
       </section>
 
@@ -72,11 +97,11 @@ const isStandalone =
           </li>
           <li>
             <b>Calibrated</b> maps readings to real dB SPL and uses the fixed
-            Min/Max scale from Options.
+            Min/Max scale from Settings.
           </li>
           <li>
-            Switch between them on the <b>Calibrate</b> screen at any time —
-            capturing a reference turns calibration on, and there's an
+            Switch between them at the top of the <b>Settings</b> screen at any
+            time — capturing a reference turns calibration on, and there's an
             <b>Auto</b> button to turn it back off.
           </li>
         </ul>
@@ -92,7 +117,7 @@ const isStandalone =
         <ol>
           <li>
             Get a <b>reference</b>: a proper sound-level meter, or a trusted phone
-            SPL app. Set its weighting and response to match the Options here
+            SPL app. Set its weighting and response to match the Settings here
             (e.g. <b>A</b> + <b>Fast</b>).
           </li>
           <li>
@@ -100,7 +125,7 @@ const isStandalone =
             noise works best) and let the reading settle.
           </li>
           <li>
-            On the <b>Calibrate</b> screen, tap <b>Capture</b> under
+            On the <b>Settings</b> screen, tap <b>Capture</b> under
             <b>Quiet reference</b>, then type the reference meter's reading into
             <b>Known dB</b>.
           </li>
@@ -124,7 +149,7 @@ const isStandalone =
         <h2>Tracking specific frequencies</h2>
         <ul>
           <li>
-            On <b>Options</b>, add up to five frequencies (in Hz) to follow
+            On <b>Settings</b>, add up to five frequencies (in Hz) to follow
             individually — for example a 50/60 Hz hum, a 1 kHz tone, or a
             whine you're chasing down.
           </li>
@@ -136,7 +161,7 @@ const isStandalone =
           <li>
             With the overlay on, tap a <b>frequency chip</b> at the bottom-left
             of the graph to show or hide that individual line. (The coloured dot
-            next to each frequency on Options does the same thing.)
+            next to each frequency on Settings does the same thing.)
           </li>
           <li>
             Use the <b>bars</b> button next to <b>Hz</b> to hide the main level

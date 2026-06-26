@@ -28,6 +28,9 @@ export const DEFAULT_SETTINGS = {
   maxDb: 100, // top of the dB scale / red threshold (used when calibrated)
   freqOverlayOn: false, // master on/off for the tracked-frequency line overlay
   freqOnly: false, // when overlaying, hide the broadband bars (show only lines)
+  spectrumPeakSec: 15, // spectrum tab: rolling "recent peak" window, seconds
+  spectrumDecaySec: 1, // spectrum tab: bar/note fade-out (release) time, seconds
+  spectrumBarsPerNote: 2, // spectrum tab: bar resolution, 1–4 bars per semitone
   // Up to MAX_FREQ_TRACKS entries: { id, freq (Hz), color, enabled }.
   // Always recorded by the meter; only drawn when freqOverlayOn and enabled.
   freqTracks: structuredClone(DEFAULT_FREQ_TRACKS),

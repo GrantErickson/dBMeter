@@ -22,6 +22,7 @@ import { freqTracksSig } from "./lib/freq.js";
 
 import TabBar from "./components/TabBar.vue";
 import MeterView from "./components/MeterView.vue";
+import SpectrumView from "./components/SpectrumView.vue";
 import ControlsPanel from "./components/ControlsPanel.vue";
 import CalibrationPanel from "./components/CalibrationPanel.vue";
 import SessionsPanel from "./components/SessionsPanel.vue";
@@ -108,8 +109,7 @@ const displayRange = computed(() => {
 });
 
 const TITLES = {
-  options: "Options",
-  cal: "Calibration",
+  settings: "Settings",
   sessions: "Saved sessions",
 };
 
@@ -346,6 +346,17 @@ const showIdleResume = computed(
         @toggle-mic="toggleMic"
       />
 
+      <!-- Spectrum analyser -->
+      <SpectrumView
+        v-else-if="activeTab === 'spectrum'"
+        :meter="meter"
+        :settings="settings"
+        :range="displayRange"
+        :calibration="appliedCalibration"
+        :is-running="meter.isRunning.value"
+        @toggle-mic="toggleMic"
+      />
+
       <!-- Help / first-run guide -->
       <HelpView
         v-else-if="activeTab === 'help'"
@@ -359,7 +370,14 @@ const showIdleResume = computed(
           <h1>{{ TITLES[activeTab] }}</h1>
         </header>
         <div class="sh-body">
-          <template v-if="activeTab === 'options'">
+          <template v-if="activeTab === 'settings'">
+            <h2 class="sec-label">Calibration</h2>
+            <CalibrationPanel
+              :settings="settings"
+              :current-raw="meter.currentRaw.value"
+              :current-db="meter.currentDb.value"
+              :is-running="meter.isRunning.value"
+            />
             <ControlsPanel
               :settings="settings"
               section="all"
@@ -368,13 +386,6 @@ const showIdleResume = computed(
             />
             <PWAInstallButton />
           </template>
-          <CalibrationPanel
-            v-else-if="activeTab === 'cal'"
-            :settings="settings"
-            :current-raw="meter.currentRaw.value"
-            :current-db="meter.currentDb.value"
-            :is-running="meter.isRunning.value"
-          />
           <SessionsPanel
             v-else-if="activeTab === 'sessions'"
             :sessions="sessions"
@@ -492,6 +503,14 @@ const showIdleResume = computed(
   padding: 0 16px;
   max-width: 640px;
   margin: 0 auto;
+}
+.sec-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #9ab4ff;
+  margin: 10px 0 6px;
 }
 
 .mic-gate {

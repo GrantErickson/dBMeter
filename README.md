@@ -7,7 +7,7 @@ saved measurements live in **localStorage**. It deploys as an **Azure Static Web
 App**.
 
 The UI is **mobile-first and app-like**: a full-bleed Graph screen plus a bottom
-tab bar (Graph · Options · Calibrate · Saved). It **auto-starts** on open
+tab bar (Graph · Spectrum · Settings · Saved · Help). It **auto-starts** on open
 (showing a one-tap "Enable microphone" gate if the browser needs a gesture) and
 keeps running across orientation changes and tab switches.
 
@@ -33,7 +33,7 @@ keeps running across orientation changes and tab switches.
 - **Auto mode** (default, until you calibrate) — readings are left uncalibrated
   (relative) and the graph range auto-scales between the quietest and loudest
   sounds heard. The numbers aren't true dB, but it's perfect for relative levels.
-  Switch between **Auto** and **Calibrated** on the Calibrate screen.
+  Switch between **Auto** and **Calibrated** at the top of the Settings screen.
 - **Colour scale** — green near the low end, yellow mid-range, red near the top
   of the scale (the user-set **Max** when calibrated, or the auto-fitted range).
 - **Calibration** — one- or two-point calibration (quiet + loud). Capture a raw
@@ -44,6 +44,12 @@ keeps running across orientation changes and tab switches.
   (default **1 s**, configurable).
 - **Save & compare** — store a measurement session and overlay it on the graph
   to compare against a live session **without interrupting** the running one.
+- **Frequency overlay** — track up to five user-set frequencies as lines on the
+  Graph (toggle from the graph; configure on Settings).
+- **Spectrum analyser** (Spectrum tab) — a live log-frequency analyser with
+  colour-coded bars, peak-hold lines (peak-since-clear + a configurable recent
+  window), a configurable note fade-out, and — in landscape — a piano keyboard
+  that highlights the loudest note and **plays a note when tapped**.
 
 ## Run locally
 
@@ -110,20 +116,24 @@ src/
   main.js
   App.vue                      tabbed shell, auto-start, mic gate, state
   styles.css                   mobile-first globals + shared control styles
-  composables/useAudioMeter.js mic capture, weighting, time weighting, sampling
+  composables/useAudioMeter.js mic capture, weighting, time weighting, sampling,
+                               per-frequency tracking + raw spectrum access
   lib/
     weighting.js               A/B/Z weighting curves
     calibration.js             1- or 2-point linear calibration
     timescale.js               logarithmic time compression
-    color.js                   green→yellow→red mapping + overlay palette
+    color.js                   green→yellow→red mapping + overlay/freq palettes
+    freq.js                    tracked-frequency helpers (limits, formatting)
+    notes.js                   MIDI/frequency note helpers for the keyboard
     storage.js                 localStorage settings + sessions
   components/
-    TabBar.vue                 bottom navigation (Graph · Options · Calibrate · Saved)
+    TabBar.vue                 bottom navigation (Graph · Spectrum · Settings · Saved · Help)
     HelpView.vue               first-run guide + calibration how-to
     MeterView.vue              full-bleed graph + superimposed readout + Clear
-    DbGraph.vue                canvas graph (log/linear, colour, overlays)
-    ControlsPanel.vue          Options screen settings (via `section` prop)
-    CalibrationPanel.vue       capture + enter known dB
+    DbGraph.vue                canvas graph (log/linear, colour, overlays, freq lines)
+    SpectrumView.vue           live log-frequency analyser + peak hold + piano
+    ControlsPanel.vue          Settings screen controls (via `section` prop)
+    CalibrationPanel.vue       capture + enter known dB (top of Settings)
     SessionsPanel.vue          save / recall / overlay / delete
 ```
 
@@ -137,7 +147,7 @@ src/
   The Fullscreen API requires a tap, so it can't be automatic; on iPhone (no
   Fullscreen API) use **Share → Add to Home Screen** instead.
 - **Pause/Resume** the microphone with the ⏸/▶ button on the graph (or from the
-  Options screen); the meter otherwise keeps running while you switch tabs or
+  Settings screen); the meter otherwise keeps running while you switch tabs or
   rotate the device.
 - **Auto-pause:** if the app stays hidden/unvisited for about an hour, the mic
   pauses automatically to save battery — tap ▶ to resume.
