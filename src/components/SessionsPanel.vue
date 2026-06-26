@@ -45,6 +45,7 @@ function fmtDur(s) {
       <input
         type="text"
         v-model="name"
+        aria-label="Session name"
         placeholder="Name this measurement…"
         @keyup.enter="save"
       />
@@ -64,6 +65,8 @@ function fmtDur(s) {
           class="dot"
           :class="{ on: overlayIds.has(s.id) }"
           :style="overlayIds.has(s.id) ? { background: colorOf(s.id), borderColor: colorOf(s.id) } : {}"
+          :aria-pressed="overlayIds.has(s.id)"
+          :aria-label="(overlayIds.has(s.id) ? 'Hide ' : 'Show ') + s.name + ' overlay'"
           :title="overlayIds.has(s.id) ? 'Hide overlay' : 'Show overlay'"
           @click="emit('toggle', s)"
         ></button>
@@ -94,13 +97,6 @@ function fmtDur(s) {
   flex-direction: column;
   gap: 10px;
 }
-h2 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.55;
-  margin: 6px 0 2px;
-}
 .save-row {
   display: flex;
   gap: 8px;
@@ -117,7 +113,7 @@ h2 {
 }
 button.save {
   border: none;
-  background: #2bb673;
+  background: var(--go);
   color: #fff;
   border-radius: 8px;
   padding: 10px 12px;
@@ -165,9 +161,6 @@ button.save:disabled {
   cursor: pointer;
   flex: none;
 }
-.del {
-  padding: 6px 8px;
-}
 .info {
   flex: 1;
   min-width: 0;
@@ -189,6 +182,7 @@ button.save:disabled {
   opacity: 0.5;
   cursor: pointer;
   font-size: 13px;
+  padding: 6px 8px;
 }
 .del:hover {
   opacity: 1;

@@ -128,24 +128,31 @@ export function useAudioMeter() {
       return false
     }
 
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    audioCtx = new Ctx()
-    if (audioCtx.state === 'suspended') {
-      try {
-        await audioCtx.resume()
-      } catch {
-        /* ignore */
+    // If anything in the audio-graph setup throws, release the mic stream we
+    // just acquired (and any partially-created context) instead of leaking it.
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext
+      audioCtx = new Ctx()
+      if (audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume()
+        } catch {
+          /* ignore */
+        }
       }
+      source = audioCtx.createMediaStreamSource(stream)
+      analyser = audioCtx.createAnalyser()
+      analyser.fftSize = 8192
+      analyser.smoothingTimeConstant = 0 // we do our own time weighting
+      source.connect(analyser)
+      // Intentionally NOT connected to destination (avoids feedback / echo).
+      freqData = new Float32Array(analyser.frequencyBinCount)
+      computeWeights()
+    } catch (e) {
+      error.value = 'Audio setup failed: ' + (e && e.message ? e.message : e)
+      stop()
+      return false
     }
-    source = audioCtx.createMediaStreamSource(stream)
-    analyser = audioCtx.createAnalyser()
-    analyser.fftSize = 8192
-    analyser.smoothingTimeConstant = 0 // we do our own time weighting
-    source.connect(analyser)
-    // Intentionally NOT connected to destination (avoids feedback / echo).
-
-    freqData = new Float32Array(analyser.frequencyBinCount)
-    computeWeights()
 
     smoothedPower = 0
     peakDb.value = -Infinity

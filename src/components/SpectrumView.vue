@@ -10,7 +10,8 @@ import {
   PIANO_MIN_MIDI,
   PIANO_MAX_MIDI,
 } from '../lib/notes.js'
-import { useFullscreen } from '../composables/useFullscreen.js'
+import HudControls from './HudControls.vue'
+import { resizeCanvasToDpr } from '../lib/canvas.js'
 
 const props = defineProps({
   meter: { type: Object, required: true },
@@ -20,12 +21,6 @@ const props = defineProps({
   isRunning: { type: Boolean, default: false },
 })
 const emit = defineEmits(['toggle-mic'])
-
-const {
-  isFullscreen,
-  supported: fsSupported,
-  toggle: toggleFullscreen,
-} = useFullscreen()
 
 const canvas = ref(null)
 let ctx = null
@@ -59,13 +54,7 @@ let pressedMidi = null // briefly highlights a tapped key
 let pressTimer = null
 
 function resize() {
-  const c = canvas.value
-  if (!c) return
-  const r = c.getBoundingClientRect()
-  const dpr = window.devicePixelRatio || 1
-  c.width = Math.max(1, Math.round(r.width * dpr))
-  c.height = Math.max(1, Math.round(r.height * dpr))
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (canvas.value) resizeCanvasToDpr(canvas.value, ctx)
 }
 
 function allocate(n) {
@@ -398,7 +387,7 @@ function playNote(midi) {
       const Ctx = window.AudioContext || window.webkitAudioContext
       playCtx = new Ctx()
     }
-    if (playCtx.state === 'suspended') playCtx.resume()
+    if (playCtx.state === 'suspended') playCtx.resume().catch(() => {})
     const t = playCtx.currentTime
     const dur = 0.7
     const osc = playCtx.createOscillator()
@@ -481,7 +470,12 @@ onBeforeUnmount(() => {
 <template>
   <div class="spectrum">
     <div class="graph-host">
-      <canvas ref="canvas" @pointerdown="onPointerDown"></canvas>
+      <canvas
+        ref="canvas"
+        role="img"
+        aria-label="Live frequency spectrum analyser"
+        @pointerdown="onPointerDown"
+      ></canvas>
 
       <!-- Dominant-note readout (top-left over the graph) -->
       <div class="hud-readout">
@@ -494,37 +488,7 @@ onBeforeUnmount(() => {
 
       <!-- Actions (top-right) -->
       <div class="hud-actions">
-        <button
-          class="hud-play"
-          :title="isRunning ? 'Pause' : 'Resume'"
-          @click="emit('toggle-mic')"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path v-if="isRunning" d="M7 5h3v14H7z M14 5h3v14h-3z" fill="currentColor" />
-            <path v-else d="M8 5l12 7-12 7z" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          v-if="fsSupported"
-          class="hud-icon"
-          :title="isFullscreen ? 'Exit full screen' : 'Full screen'"
-          @click="toggleFullscreen"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-              :d="
-                isFullscreen
-                  ? 'M8 3v3a2 2 0 0 1-2 2H3 M21 8h-3a2 2 0 0 1-2-2V3 M3 16h3a2 2 0 0 1 2 2v3 M16 21v-3a2 2 0 0 1 2-2h3'
-                  : 'M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M16 21h3a2 2 0 0 0 2-2v-3 M3 16v3a2 2 0 0 0 2 2h3'
-              "
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+        <HudControls :is-running="isRunning" @toggle-mic="emit('toggle-mic')" />
         <button class="clear" title="Reset peak hold" @click="clearPeaks">Clear</button>
       </div>
 
@@ -599,27 +563,6 @@ canvas {
   font-weight: 600;
   min-height: 28px;
 }
-.hud-icon,
-.hud-play {
-  border: none;
-  background: rgba(20, 26, 43, 0.85);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-radius: 50%;
-}
-.hud-icon {
-  width: 28px;
-  height: 28px;
-}
-.hud-play {
-  width: 36px;
-  height: 36px;
-  background: rgba(20, 26, 43, 0.9);
-}
-
 .hud-foot {
   position: absolute;
   left: 54px;

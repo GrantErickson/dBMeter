@@ -26,8 +26,3 @@ export function ageToFrac(ageMin, totalMin, u) {
   return Math.log(1 + ageMin * u) / Math.log(1 + totalMin * u)
 }
 
-// fraction from the right edge (0..1) -> age (minutes from now)
-export function fracToAge(frac, totalMin, u) {
-  if (!u) return frac * totalMin
-  return (Math.pow(1 + totalMin * u, frac) - 1) / u
-}

@@ -3,7 +3,7 @@
 // page is visible it is considered "visited" and never auto-pauses (so it can
 // be left running as a monitor).
 
-export const IDLE_PAUSE_MS = 60 * 60 * 1000 // 1 hour
+const IDLE_PAUSE_MS = 60 * 60 * 1000 // 1 hour
 
 // hiddenSince: timestamp (ms) the page last became hidden, or null if visible.
 export function shouldIdlePause(hiddenSince, nowMs, isRunning, thresholdMs = IDLE_PAUSE_MS) {

@@ -4,12 +4,8 @@ import { uid } from '../lib/storage.js'
 import { nextFreqColor } from '../lib/color.js'
 import { MAX_FREQ_TRACKS, MIN_FREQ, MAX_FREQ } from '../lib/freq.js'
 
-// `section` lets the same control set back two separate tab screens:
-//   'measurement' -> mic / weighting / response / interval
-//   'graph'       -> mode / timeline / scale
 const props = defineProps({
   settings: { type: Object, required: true },
-  section: { type: String, default: 'all' }, // 'measurement' | 'graph' | 'all'
   isRunning: { type: Boolean, default: false },
 })
 const emit = defineEmits(['toggle-mic'])
@@ -32,8 +28,7 @@ function removeFreqTrack(i) {
 
 <template>
   <div class="panel">
-    <template v-if="section !== 'graph'">
-      <h2>Microphone</h2>
+    <h2>Microphone</h2>
       <div class="row">
         <label>
           <span
@@ -92,10 +87,7 @@ function removeFreqTrack(i) {
           <span class="suffix">s</span>
         </div>
       </div>
-    </template>
-
-    <template v-if="section !== 'measurement'">
-      <h2>Timeline</h2>
+    <h2>Timeline</h2>
       <div class="row">
         <label>Graph mode</label>
         <div class="seg">
@@ -172,6 +164,10 @@ function removeFreqTrack(i) {
                 ? { background: t.color, borderColor: t.color }
                 : { borderColor: t.color }
             "
+            :aria-pressed="t.enabled !== false"
+            :aria-label="
+              (t.enabled !== false ? 'Hide' : 'Show') + ' this frequency line'
+            "
             :title="t.enabled !== false ? 'Shown when overlay is on' : 'Hidden'"
             @click="t.enabled = t.enabled === false"
           ></button>
@@ -182,11 +178,12 @@ function removeFreqTrack(i) {
               :min="MIN_FREQ"
               :max="MAX_FREQ"
               step="1"
+              aria-label="Frequency in hertz"
               v-model.number="t.freq"
             />
             <span class="suffix">Hz</span>
           </div>
-          <button class="freq-del" title="Remove" @click="removeFreqTrack(i)">
+          <button class="freq-del" title="Remove" :aria-label="'Remove frequency'" @click="removeFreqTrack(i)">
             ✕
           </button>
         </li>
@@ -246,7 +243,6 @@ function removeFreqTrack(i) {
           </button>
         </div>
       </div>
-    </template>
   </div>
 </template>
 
@@ -293,11 +289,11 @@ label {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #e0506b;
+  background: var(--danger);
 }
 .status-dot.on {
-  background: #2bb673;
-  box-shadow: 0 0 8px #2bb673;
+  background: var(--go);
+  box-shadow: 0 0 8px var(--go);
 }
 .mic-btn {
   border: none;
@@ -310,12 +306,12 @@ label {
   min-height: 40px;
 }
 .mic-btn.paused {
-  background: #2bb673;
+  background: var(--go);
   color: #fff;
 }
 .hint {
   font-size: 12px;
-  opacity: 0.55;
+  opacity: 0.7;
   line-height: 1.45;
   margin: 4px 0 0;
 }

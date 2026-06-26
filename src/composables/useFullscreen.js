@@ -54,5 +54,5 @@ export function useFullscreen() {
     document.removeEventListener('webkitfullscreenchange', sync)
   })
 
-  return { isFullscreen, supported, toggle, enter, exit }
+  return { isFullscreen, supported, toggle }
 }

@@ -4,6 +4,8 @@
   --panel: #141a2b;
   --fg: #e7ebf5;
   --accent: #3b6cff;
+  --go: #2bb673; /* primary / "running" green */
+  --danger: #e0506b; /* destructive / "paused" red */
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-l: env(safe-area-inset-left, 0px);

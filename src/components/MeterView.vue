@@ -1,15 +1,9 @@
 <script setup>
 import { computed } from 'vue'
 import DbGraph from './DbGraph.vue'
+import HudControls from './HudControls.vue'
 import { dbToColor } from '../lib/color.js'
 import { fmtFreq } from '../lib/freq.js'
-import { useFullscreen } from '../composables/useFullscreen.js'
-
-const {
-  isFullscreen,
-  supported: fsSupported,
-  toggle: toggleFullscreen,
-} = useFullscreen()
 
 const props = defineProps({
   liveSamples: { type: Array, default: () => [] },
@@ -24,6 +18,10 @@ const props = defineProps({
   currentFreqs: { type: Object, default: () => ({}) }, // { [id]: live dB }
 })
 const emit = defineEmits(['clear', 'reset-peak', 'toggle-mic'])
+
+const responseLabel = computed(() =>
+  props.settings.response === 'slow' ? 'Slow' : 'Fast'
+)
 
 // Live value text for a tracked frequency (recorded for all tracks regardless
 // of whether their line is currently shown).
@@ -65,7 +63,7 @@ const fill = computed(() => {
       </div>
       <div class="rb-side">
         <div class="rb-meta">
-          {{ settings.weighting }} · {{ settings.response === 'slow' ? 'Slow' : 'Fast' }}
+          {{ settings.weighting }} · {{ responseLabel }}
         </div>
         <button class="rb-peak" title="Tap to reset peak" @click="emit('reset-peak')">
           peak {{ peakText }}
@@ -95,7 +93,7 @@ const fill = computed(() => {
           {{ dbText }}<small>dB</small>
         </div>
         <div class="hr-meta">
-          {{ settings.weighting }} · {{ settings.response === 'slow' ? 'Slow' : 'Fast' }} ·
+          {{ settings.weighting }} · {{ responseLabel }} ·
           <button class="hr-peak" title="Tap to reset peak" @click="emit('reset-peak')">
             pk {{ peakText }}
           </button>
@@ -104,45 +102,12 @@ const fill = computed(() => {
 
       <!-- Actions (top-right over the graph, both orientations) -->
       <div class="hud-actions">
-        <button
-          class="hud-play"
-          :title="isRunning ? 'Pause' : 'Resume'"
-          @click="emit('toggle-mic')"
-        >
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path
-              v-if="isRunning"
-              d="M7 5h3v14H7z M14 5h3v14h-3z"
-              fill="currentColor"
-            />
-            <path v-else d="M8 5l12 7-12 7z" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          v-if="fsSupported"
-          class="hud-icon"
-          :title="isFullscreen ? 'Exit full screen' : 'Full screen'"
-          @click="toggleFullscreen"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-              :d="
-                isFullscreen
-                  ? 'M8 3v3a2 2 0 0 1-2 2H3 M21 8h-3a2 2 0 0 1-2-2V3 M3 16h3a2 2 0 0 1 2 2v3 M16 21v-3a2 2 0 0 1 2-2h3'
-                  : 'M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M16 21h3a2 2 0 0 0 2-2v-3 M3 16v3a2 2 0 0 0 2 2h3'
-              "
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+        <HudControls :is-running="isRunning" @toggle-mic="emit('toggle-mic')" />
         <button
           v-if="settings.freqTracks.length"
           class="hud-toggle"
           :class="{ active: settings.freqOverlayOn }"
+          :aria-pressed="settings.freqOverlayOn"
           :title="
             settings.freqOverlayOn
               ? 'Hide frequency tracking'
@@ -156,6 +121,12 @@ const fill = computed(() => {
           v-if="settings.freqOverlayOn && settings.freqTracks.length"
           class="hud-icon"
           :class="{ active: settings.freqOnly }"
+          :aria-pressed="settings.freqOnly"
+          :aria-label="
+            settings.freqOnly
+              ? 'Show the level bars too'
+              : 'Show only the frequency lines'
+          "
           :title="
             settings.freqOnly
               ? 'Show the level bars too'
@@ -216,6 +187,7 @@ const fill = computed(() => {
             :style="
               t.enabled !== false ? { borderColor: t.color, color: t.color } : {}
             "
+            :aria-pressed="t.enabled !== false"
             :title="t.enabled !== false ? 'Hide this line' : 'Show this line'"
             @click="t.enabled = t.enabled === false"
           >
@@ -394,20 +366,6 @@ const fill = computed(() => {
   background: var(--accent);
   color: #fff;
 }
-/* Pause/play: a bit larger than the icon buttons, smaller than the readout. */
-.hud-play {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(20, 26, 43, 0.9);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin-right: 2px;
-}
 
 .hud-foot {
   position: absolute;
@@ -434,8 +392,8 @@ const fill = computed(() => {
   line-height: 1.4;
 }
 .chip.off {
-  border-color: rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.55);
 }
 .paused {
   font-size: 11px;

@@ -5,8 +5,8 @@
 // frequency axis every semitone is an equal horizontal step, which is what lets
 // the keyboard line up under the spectrum.
 
-export const A4 = 440
-export const NOTE_NAMES = [
+const A4 = 440
+const NOTE_NAMES = [
   'C',
   'C#',
   'D',

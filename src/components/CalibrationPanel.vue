@@ -51,7 +51,7 @@ function clearPoint(i) {
     <p v-else class="mode-note">
       <b>Calibrated mode.</b> Readings are mapped to real dB SPL using the
       reference points below, and the graph uses the fixed Min/Max scale from
-      Options. Switch back to <b>Auto</b> any time for relative levels.
+      Settings. Switch back to <b>Auto</b> any time for relative levels.
     </p>
 
     <p class="hint">
@@ -117,13 +117,6 @@ function clearPoint(i) {
   line-height: 1.5;
   opacity: 0.85;
   margin: 0;
-}
-h2 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.55;
-  margin: 6px 0 2px;
 }
 .hint {
   font-size: 12px;

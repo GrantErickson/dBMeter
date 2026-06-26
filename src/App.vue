@@ -78,7 +78,7 @@ const appliedCalibration = computed(() =>
 );
 
 // Effective dB range for the y-axis and colours.
-//  - calibrated: the fixed Min/Max the user set in Options
+//  - calibrated: the fixed Min/Max the user set in Settings
 //  - auto: fits the quietest..loudest levels heard so far (live + overlays)
 const displayRange = computed(() => {
   if (!settings.autoMode) {
@@ -380,7 +380,6 @@ const showIdleResume = computed(
             />
             <ControlsPanel
               :settings="settings"
-              section="all"
               :is-running="meter.isRunning.value"
               @toggle-mic="toggleMic"
             />
@@ -544,7 +543,7 @@ const showIdleResume = computed(
 }
 .gate-btn {
   border: none;
-  background: #2bb673;
+  background: var(--go);
   color: #fff;
   border-radius: 12px;
   padding: 14px 26px;

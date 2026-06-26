@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onBeforeUnmount } from 'vue'
+import AccordionSection from './AccordionSection.vue'
 
 defineProps({
   firstRun: { type: Boolean, default: false },
@@ -98,16 +99,8 @@ const isStandalone =
         uploaded, and your settings and saved measurements stay on this device.
       </p>
 
-      <section class="acc" :class="{ open: isOpen('graph') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('graph')" @click="toggle('graph')">
-            <span>Reading the graph</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('graph')">
+      <div class="acc-list">
+      <AccordionSection title="Reading the graph" :open="isOpen('graph')" @toggle="toggle('graph')">
         <ul>
           <li>
             The big number is the current level. Bars are coloured
@@ -123,19 +116,9 @@ const isStandalone =
           <li>Tap the <b>peak</b> value to reset peak-hold.</li>
           <li><b>Clear</b> wipes the graph and starts fresh (settings are kept).</li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('settings') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('settings')" @click="toggle('settings')">
-            <span>Settings</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('settings')">
+      <AccordionSection title="Settings" :open="isOpen('settings')" @toggle="toggle('settings')">
         <ul>
           <li><b>Calibration</b> sits at the top — switch between Auto and Calibrated and capture reference points there.</li>
           <li><b>Weighting</b> — A and B mimic how loud sound seems to people; Z is flat/unweighted.</li>
@@ -144,19 +127,9 @@ const isStandalone =
           <li><b>Timeline length</b> and the <b>Min / Max</b> scale (which also drives the colours).</li>
           <li>Pause or resume the microphone from the Settings screen at any time.</li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('spectrum') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('spectrum')" @click="toggle('spectrum')">
-            <span>Spectrum analyser</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('spectrum')">
+      <AccordionSection title="Spectrum analyser" :open="isOpen('spectrum')" @toggle="toggle('spectrum')">
         <ul>
           <li>
             The <b>Spectrum</b> tab shows a live frequency analyser — bars across
@@ -177,19 +150,9 @@ const isStandalone =
             the highlighted note) fall away after a sound stops.
           </li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('autocal') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('autocal')" @click="toggle('autocal')">
-            <span>Auto mode vs. calibrated</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('autocal')">
+      <AccordionSection title="Auto mode vs. calibrated" :open="isOpen('autocal')" @toggle="toggle('autocal')">
         <ul>
           <li>
             <b>Auto</b> (the default, until you calibrate) shows
@@ -208,19 +171,9 @@ const isStandalone =
             <b>Auto</b> button to turn it back off.
           </li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc accent" :class="{ open: isOpen('calibrate') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('calibrate')" @click="toggle('calibrate')">
-            <span>Calibrating to real dB SPL</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('calibrate')">
+      <AccordionSection title="Calibrating to real dB SPL" accent :open="isOpen('calibrate')" @toggle="toggle('calibrate')">
         <p>
           Calibration maps the raw reading onto a real scale using one or two
           reference points. (Skip this if you're happy with relative levels in
@@ -255,19 +208,9 @@ const isStandalone =
           everything by a fixed offset. Re-calibrate if you change device,
           microphone, or weighting. Keep the mic unobstructed during measurement.
         </p>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('freqs') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('freqs')" @click="toggle('freqs')">
-            <span>Tracking specific frequencies</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('freqs')">
+      <AccordionSection title="Tracking specific frequencies" :open="isOpen('freqs')" @toggle="toggle('freqs')">
         <ul>
           <li>
             On <b>Settings</b>, add up to five frequencies (in Hz) to follow
@@ -295,19 +238,9 @@ const isStandalone =
             frequency gets louder.
           </li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('saving') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('saving')" @click="toggle('saving')">
-            <span>Saving &amp; comparing</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('saving')">
+      <AccordionSection title="Saving &amp; comparing" :open="isOpen('saving')" @toggle="toggle('saving')">
         <ul>
           <li>On the <b>Saved</b> screen, name and save the current measurement.</li>
           <li>
@@ -316,19 +249,9 @@ const isStandalone =
             the running session.
           </li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('install') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('install')" @click="toggle('install')">
-            <span>Full screen &amp; running as an app</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('install')">
+      <AccordionSection title="Full screen &amp; running as an app" :open="isOpen('install')" @toggle="toggle('install')">
 
         <p v-if="isStandalone">
           You're running dB Meter as an installed app — the address bar is
@@ -368,19 +291,9 @@ const isStandalone =
           install dB Meter from your browser's menu (<b>Install</b> / <b>Add to
           Home Screen</b>) to run it in its own window.
         </p>
-        </div>
-      </section>
+      </AccordionSection>
 
-      <section class="acc" :class="{ open: isOpen('good') }">
-        <h2 class="acc-head">
-          <button class="acc-btn" :aria-expanded="isOpen('good')" @click="toggle('good')">
-            <span>Good to know</span>
-            <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </button>
-        </h2>
-        <div class="acc-body" v-show="isOpen('good')">
+      <AccordionSection title="Good to know" :open="isOpen('good')" @toggle="toggle('good')">
         <ul>
           <li>Microphone access needs a secure page (HTTPS) or localhost, and your permission.</li>
           <li>The app keeps measuring while you switch tabs or rotate the device.</li>
@@ -391,8 +304,8 @@ const isStandalone =
           </li>
           <li>In landscape the graph fills the screen with the reading on top.</li>
         </ul>
-        </div>
-      </section>
+      </AccordionSection>
+      </div>
 
       <button class="cta" @click="emit('close')">
         {{ firstRun ? 'Get started' : 'Show me the graph' }}
@@ -421,6 +334,9 @@ const isStandalone =
 .hh h1 {
   margin: 0;
   font-size: 22px;
+  /* min-width:0 lets the title share/wrap rather than pushing the action
+     buttons off-screen; it still wraps to a second line instead of truncating. */
+  min-width: 0;
 }
 .hh-actions {
   display: flex;
@@ -471,46 +387,10 @@ const isStandalone =
   opacity: 0.85;
   margin: 0 0 8px;
 }
-/* ----- collapsible sections (accordion) ----- */
-.acc {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-.acc:last-of-type {
+/* The accordion list closes off its last item with a bottom rule (each item
+   draws its own top rule). */
+.acc-list {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-.acc-head {
-  margin: 0;
-  font-size: inherit;
-  font-weight: inherit;
-}
-.acc-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: transparent;
-  border: none;
-  color: inherit;
-  text-align: left;
-  padding: 15px 2px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.acc.accent .acc-btn {
-  color: #9ab4ff;
-}
-.chev {
-  flex: none;
-  opacity: 0.6;
-  transition: transform 0.2s ease;
-}
-.acc.open .chev {
-  transform: rotate(180deg);
-}
-.acc-body {
-  padding: 0 2px 16px;
 }
 ul,
 ol {
@@ -538,7 +418,7 @@ p {
   width: 100%;
   margin-top: 26px;
   border: none;
-  background: #2bb673;
+  background: var(--go);
   color: #fff;
   border-radius: 12px;
   padding: 15px;

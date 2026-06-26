@@ -35,7 +35,7 @@ function recentlyDismissed() {
 }
 
 // --- Shared singleton state -------------------------------------------------
-// One source of truth so the auto-banner and the Options "Install" button stay
+// One source of truth so the auto-banner and the Settings "Install" button stay
 // in sync. Listeners are attached once at module load, which also avoids the
 // race where beforeinstallprompt fires before any component mounts.
 const deferredPrompt = ref(null); // Android/desktop beforeinstallprompt event
@@ -94,7 +94,7 @@ export function usePWAInstall() {
     return null;
   });
 
-  // Persistent control (Options screen): always reflects how the user can
+  // Persistent control (Settings screen): always reflects how the user can
   // install right now, regardless of whether the banner was dismissed.
   //   installed   – already running as an installed app
   //   button      – native install available (tap to install)

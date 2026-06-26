@@ -1,6 +1,6 @@
 // Helpers for the user-tracked frequency overlay.
 //
-// The user can configure up to MAX_FREQ_TRACKS frequencies on the Options
+// The user can configure up to MAX_FREQ_TRACKS frequencies on the Settings
 // screen. Each is tracked continuously by the meter (the level of a narrow band
 // around the frequency) and can be drawn as a line on the graph when the
 // overlay is turned on from the main screen.

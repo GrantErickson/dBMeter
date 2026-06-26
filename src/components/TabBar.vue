@@ -1,5 +1,5 @@
 <script setup>
-const props = defineProps({
+defineProps({
   modelValue: { type: String, required: true },
   overlayCount: { type: Number, default: 0 },
 })
@@ -103,7 +103,7 @@ const tabs = [
   top: 4px;
   right: 50%;
   transform: translateX(16px);
-  background: #2bb673;
+  background: var(--go);
   color: #fff;
   font-size: 10px;
   min-width: 16px;

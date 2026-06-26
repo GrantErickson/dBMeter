@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { computeU, ageToFrac } from '../lib/timescale.js'
 import { dbToColor } from '../lib/color.js'
 import { fmtFreq } from '../lib/freq.js'
+import { resizeCanvasToDpr } from '../lib/canvas.js'
 
 const props = defineProps({
   liveSamples: { type: Array, default: () => [] },
@@ -21,13 +22,7 @@ let raf = null
 let ro = null
 
 function resize() {
-  const c = canvas.value
-  if (!c) return
-  const r = c.getBoundingClientRect()
-  const dpr = window.devicePixelRatio || 1
-  c.width = Math.max(1, Math.round(r.width * dpr))
-  c.height = Math.max(1, Math.round(r.height * dpr))
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  if (canvas.value) resizeCanvasToDpr(canvas.value, ctx)
 }
 
 const TIME_MARKS_LOG = [0, 0.5, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60]
@@ -274,7 +269,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="graph-wrap">
-    <canvas ref="canvas"></canvas>
+    <canvas
+      ref="canvas"
+      role="img"
+      aria-label="Sound level over time chart"
+    ></canvas>
   </div>
 </template>
 
