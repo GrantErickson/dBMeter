@@ -261,7 +261,7 @@ function draw() {
     // is an equal step on the log axis, so N bars per note = semitoneW / N.
     const barsPerNote = Math.max(
       1,
-      Math.min(4, Math.round(props.settings.spectrumBarsPerNote || 2))
+      Math.min(4, Math.round(props.settings.spectrumBarsPerNote || 1))
     )
     const semitoneSpan = freqToMidi(fMax) - freqToMidi(F_MIN)
     const barW = Math.max(1, plot.w / semitoneSpan / barsPerNote)

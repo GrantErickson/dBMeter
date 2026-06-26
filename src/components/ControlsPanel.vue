@@ -239,7 +239,7 @@ function removeFreqTrack(i) {
           <button
             v-for="n in 4"
             :key="n"
-            :class="{ active: (settings.spectrumBarsPerNote || 2) === n }"
+            :class="{ active: (settings.spectrumBarsPerNote || 1) === n }"
             @click="settings.spectrumBarsPerNote = n"
           >
             {{ n }}
