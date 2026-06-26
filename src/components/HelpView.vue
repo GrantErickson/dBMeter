@@ -1,8 +1,51 @@
 <script setup>
+import { ref, onBeforeUnmount } from 'vue'
+
 defineProps({
   firstRun: { type: Boolean, default: false },
 })
 const emit = defineEmits(['close'])
+
+// Share the app with others: native share sheet where available, otherwise
+// copy the link to the clipboard with a brief confirmation.
+const APP_URL = 'https://dbmeter.micapeak.net'
+const shareLabel = ref('Share')
+let flashTimer = null
+
+function flash(msg) {
+  shareLabel.value = msg
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    shareLabel.value = 'Share'
+  }, 1800)
+}
+
+async function share() {
+  const data = {
+    title: 'dB Meter',
+    text: 'dB Meter — turn your device into a sound-level meter and spectrum analyser.',
+    url: APP_URL,
+  }
+  if (navigator.share) {
+    try {
+      await navigator.share(data)
+    } catch {
+      /* user cancelled or the share was dismissed */
+    }
+    return
+  }
+  // No Web Share API (most desktop browsers): copy the link instead.
+  try {
+    await navigator.clipboard.writeText(APP_URL)
+    flash('Link copied')
+  } catch {
+    flash('Copy failed')
+  }
+}
+
+onBeforeUnmount(() => {
+  if (flashTimer) clearTimeout(flashTimer)
+})
 
 // Platform detection for install / full-screen guidance (evaluated on mount).
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
@@ -20,7 +63,22 @@ const isStandalone =
   <div class="help">
     <header class="hh">
       <h1>{{ firstRun ? 'Welcome to dB Meter' : 'Help &amp; guide' }}</h1>
-      <button class="done" @click="emit('close')">Done</button>
+      <div class="hh-actions">
+        <button class="share" title="Share dB Meter" @click="share">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              d="M12 3v12 M8 7l4-4 4 4 M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          {{ shareLabel }}
+        </button>
+        <button class="done" @click="emit('close')">Done</button>
+      </div>
     </header>
 
     <div class="hbody">
@@ -273,6 +331,12 @@ const isStandalone =
   margin: 0;
   font-size: 22px;
 }
+.hh-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
 .done {
   border: none;
   background: rgba(255, 255, 255, 0.1);
@@ -281,6 +345,23 @@ const isStandalone =
   padding: 9px 16px;
   font-size: 14px;
   font-weight: 600;
+  flex: none;
+}
+.share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  flex: none;
+  white-space: nowrap;
+}
+.share svg {
   flex: none;
 }
 .hbody {
