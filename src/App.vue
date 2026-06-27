@@ -30,6 +30,19 @@ import HelpView from "./components/HelpView.vue";
 import PWAInstallPrompt from "./components/PWAInstallPrompt.vue";
 import PWAInstallButton from "./components/PWAInstallButton.vue";
 
+// Build stamps injected by Vite (see vite.config.js). The build timestamp is a
+// UTC ISO string set at build time (so it doubles as the deploy version); show
+// it in the visitor's local time.
+const APP_VERSION = __APP_VERSION__;
+const BUILD_DATE = formatBuildTime(__BUILD_TIME__);
+
+function formatBuildTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 const HELP_KEY = "dbmeter.helpseen.v1";
 let helpSeenInitially = false;
 try {
@@ -384,6 +397,9 @@ const showIdleResume = computed(
               @toggle-mic="toggleMic"
             />
             <PWAInstallButton />
+            <p class="app-version">
+              dB Meter v{{ APP_VERSION }} · {{ BUILD_DATE }}
+            </p>
           </template>
           <SessionsPanel
             v-else-if="activeTab === 'sessions'"
@@ -510,6 +526,13 @@ const showIdleResume = computed(
   font-weight: 700;
   color: #9ab4ff;
   margin: 10px 0 6px;
+}
+.app-version {
+  margin: 28px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.45;
+  font-variant-numeric: tabular-nums;
 }
 
 .mic-gate {
