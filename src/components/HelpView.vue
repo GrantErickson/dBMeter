@@ -146,6 +146,13 @@ const isStandalone =
             frequency show at the top-left. <b>Tap a key</b> to play that note.
           </li>
           <li>
+            Below the note, <b>Key</b> shows a best guess at the musical key the
+            music is in, built up over the last several seconds so it stays
+            steady, and <b>Chord</b> shows the chord playing now with its Roman
+            numeral in that key. Set the chord vocabulary (or turn it off) under
+            <b>Chord detection</b> on Settings.
+          </li>
+          <li>
             <b>Note fade-out</b> on Settings controls how slowly the bars (and
             the highlighted note) fall away after a sound stops.
           </li>

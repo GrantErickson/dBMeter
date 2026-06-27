@@ -10,6 +10,13 @@ const props = defineProps({
 })
 const emit = defineEmits(['toggle-mic'])
 
+const CHORD_LEVELS = [
+  { value: 'off', label: 'Off' },
+  { value: 'triads', label: 'Triads' },
+  { value: 'sevenths', label: '7ths' },
+  { value: 'full', label: 'Full' },
+]
+
 function addFreqTrack() {
   const tracks = props.settings.freqTracks
   if (tracks.length >= MAX_FREQ_TRACKS) return
@@ -243,6 +250,24 @@ function removeFreqTrack(i) {
           </button>
         </div>
       </div>
+      <div class="row">
+        <label>Chord detection</label>
+        <div class="seg">
+          <button
+            v-for="c in CHORD_LEVELS"
+            :key="c.value"
+            :class="{ active: (settings.spectrumChordLevel || 'triads') === c.value }"
+            @click="settings.spectrumChordLevel = c.value"
+          >
+            {{ c.label }}
+          </button>
+        </div>
+      </div>
+      <p class="hint">
+        The Spectrum tab guesses the key the music is in and the chord currently
+        playing. Choose how rich the chord vocabulary is — wider settings name
+        more chords but are more easily fooled by a noisy signal.
+      </p>
   </div>
 </template>
 

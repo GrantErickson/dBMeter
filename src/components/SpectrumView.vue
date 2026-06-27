@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { dbToColor } from '../lib/color.js'
 import { applyCalibration } from '../lib/calibration.js'
 import {
@@ -10,6 +10,7 @@ import {
   PIANO_MIN_MIDI,
   PIANO_MAX_MIDI,
 } from '../lib/notes.js'
+import { estimateKey, estimateChord, romanNumeral } from '../lib/key.js'
 import HudControls from './HudControls.vue'
 import { resizeCanvasToDpr } from '../lib/canvas.js'
 
@@ -52,6 +53,54 @@ let lastInfo = null // last analyser config, reused to render while paused
 // Dominant note readout (reactive so the HUD updates).
 const dominant = ref(null) // { name, freq } | null
 let domKey = '' // limits dominant.value writes to actual changes
+
+// Harmony readouts (reactive so the HUD updates).
+//   musicKey: best-guess key, e.g. "C major" | null
+//   chord:    currently-sounding chord, { name, roman } | null
+// Two decaying pitch-class profiles (chromagrams) are accumulated from the
+// spectrum each frame: a long one drives a deliberately sticky key estimate, a
+// short one drives a responsive chord estimate. Confidently-detected chords also
+// feed the key profile, so the harmony informs the song's key.
+const musicKey = ref(null)
+const chord = ref(null)
+const chordEnabled = computed(
+  () => (props.settings.spectrumChordLevel || 'triads') !== 'off'
+)
+
+const keyChroma = new Float32Array(12) // long memory -> sticky key
+const chordChroma = new Float32Array(12) // short memory -> "now" chord
+const KEY_TAU = 20 // s, how far back the key estimate remembers (sticky)
+const CHORD_TAU = 0.5 // s, chord memory — short so it tracks what's playing now
+const DYN_RANGE = 24 // dB below the loudest note still counted toward harmony
+// Harmony only reads notes from ~E2 up: below that an FFT bin is wider than a
+// semitone, so low notes smear across pitch classes. Their pitch class still
+// reaches the chromagram via upper partials (which fold to the same class).
+const HARMONY_MIN_MIDI = 40
+const KEY_MIN_TOTAL = 5 // min accumulated energy before any key is shown
+const KEY_MIN_SCORE = 0.5 // min correlation before switching keys (filters noise)
+const KEY_SWITCH_SEC = 4 // a new key must lead this long before it's adopted
+const KEY_SWITCH_MARGIN = 0.02 // ...and lead the runner-up by at least this much
+const CHORD_MIN_SCORE = 0.7 // min template match before a chord is shown
+const CHORD_MIN_MARGIN = 0.015 // ...and lead over the runner-up chord
+const CHORD_TONE_FLOOR = 0.5 // each chord tone must reach this fraction of the
+//                              loudest pitch class — rejects single notes whose
+//                              harmonics (a major third / fifth up) fake a triad
+const CHORD_SWITCH_SEC = 0.3 // a different chord must hold this long to replace one
+const CHORD_RELEASE_SEC = 0.4 // ...and a shown chord lingers this long once it drops
+const CHORD_KEY_ROOT = 8 // per-second weight a detected chord's root adds to key
+const CHORD_KEY_TONE = 4 // ...and its other tones add to the key profile
+
+let lastDt = 0.016 // frame delta from updatePeaks, reused for decay
+// Hysteresis state. Switch delays are measured by accumulating lastDt (which is
+// clamped per frame), not wall-clock timestamps, so a stalled/backgrounded tab
+// can't bank elapsed time and bypass the delay on the next frame.
+let displayedKey = null // { tonic, mode, label, name } currently shown
+let keyCand = '' // label of a challenger key awaiting the switch delay
+let keyCandAge = 0 // s the challenger has led
+let displayedChord = null // chord object ({ root, type, name, ... }) currently shown
+let chordCand = '' // name of a challenger chord awaiting the switch delay
+let chordCandAge = 0 // s the challenger has held
+let chordMissAge = 0 // s the shown chord has gone undetected (release hold)
 
 // Tap / slide to play the keyboard.
 let playCtx = null // dedicated output context (created on first press)
@@ -105,6 +154,7 @@ function updatePeaks() {
   const now = performance.now()
   const dt = lastFrameT ? Math.min(0.25, (now - lastFrameT) / 1000) : 0.016
   lastFrameT = now
+  lastDt = dt
 
   const winSec = Math.max(1, props.settings.spectrumPeakSec || 15)
   if (winSec !== prevWinSec) {
@@ -151,6 +201,182 @@ function updatePeaks() {
       peak15[i] = cur[i]
     }
   }
+}
+
+// Fold this frame's spectrum into both pitch-class profiles, then re-estimate the
+// chord and key. Each note's semitone band is summed to a dB level; notes within
+// DYN_RANGE of the loudest add salience (dB above the cutoff) to their pitch
+// class, so prominent pitches drive the estimate and broadband noise is ignored.
+function analyzeHarmony(sr, fft) {
+  if (!smooth) return
+  const dKey = Math.exp(-lastDt / KEY_TAU)
+  const dChord = Math.exp(-lastDt / CHORD_TAU)
+  for (let i = 0; i < 12; i++) {
+    keyChroma[i] *= dKey
+    chordChroma[i] *= dChord
+  }
+
+  const fMax = Math.min(20000, sr / 2)
+  const mLo = Math.max(HARMONY_MIN_MIDI, Math.ceil(freqToMidi(F_MIN)))
+  const mHi = Math.min(PIANO_MAX_MIDI, Math.floor(freqToMidi(fMax)))
+  const nBins = smooth.length
+
+  let maxDb = FLOOR
+  const noteDb = []
+  for (let m = mLo; m <= mHi; m++) {
+    let b0 = Math.max(1, Math.floor((midiToFreq(m - 0.5) * fft) / sr))
+    let b1 = Math.min(nBins - 1, Math.ceil((midiToFreq(m + 0.5) * fft) / sr))
+    if (b1 < b0) b1 = b0
+    let p = 0
+    for (let i = b0; i <= b1; i++) p += Math.pow(10, smooth[i] / 10)
+    const db = 10 * Math.log10(p + 1e-20)
+    noteDb.push(db)
+    if (db > maxDb) maxDb = db
+  }
+  if (maxDb > FLOOR + 8) {
+    const cut = maxDb - DYN_RANGE
+    for (let idx = 0; idx < noteDb.length; idx++) {
+      if (noteDb[idx] < cut) continue
+      const sal = (noteDb[idx] - cut) * lastDt
+      const pc = (((mLo + idx) % 12) + 12) % 12
+      keyChroma[pc] += sal
+      chordChroma[pc] += sal
+    }
+  }
+
+  updateChord() // also boosts keyChroma with the detected chord's tones
+  updateKey()
+  renderChord() // after both, so the Roman numeral reflects the latest key
+}
+
+// Decide the currently-sounding chord from the short-window profile and, when one
+// is confidently held, reinforce its tones in the long key profile so the
+// harmony informs the song's key.
+function updateChord() {
+  const level = props.settings.spectrumChordLevel || 'triads'
+  if (level === 'off') {
+    displayedChord = null
+    chordCand = ''
+    chordCandAge = 0
+    chordMissAge = 0
+    return
+  }
+
+  let maxPC = 0
+  for (let i = 0; i < 12; i++) if (chordChroma[i] > maxPC) maxPC = chordChroma[i]
+  const c = estimateChord(chordChroma, level)
+  let ok = false
+  if (c && c.score >= CHORD_MIN_SCORE && c.confidence >= CHORD_MIN_MARGIN) {
+    // Every chord tone must be meaningfully present — this rejects a single loud
+    // note whose harmonics merely imply a (major) chord.
+    let minTone = Infinity
+    for (const iv of c.type.ivals) {
+      const v = chordChroma[(c.root + iv) % 12] / maxPC
+      if (v < minTone) minTone = v
+    }
+    ok = minTone >= CHORD_TONE_FLOOR
+  }
+
+  if (ok) {
+    chordMissAge = 0
+    if (displayedChord && c.name === displayedChord.name) {
+      displayedChord = c // keep the latest object (same root/type)
+      chordCand = ''
+      chordCandAge = 0
+    } else {
+      // A different (or first) chord: adopt at once if none is shown, else only
+      // after it has held for CHORD_SWITCH_SEC.
+      if (chordCand !== c.name) {
+        chordCand = c.name
+        chordCandAge = 0
+      } else {
+        chordCandAge += lastDt
+      }
+      if (!displayedChord || chordCandAge >= CHORD_SWITCH_SEC) {
+        displayedChord = c
+        chordCand = ''
+        chordCandAge = 0
+      }
+    }
+  } else {
+    // No valid chord this frame: keep showing the last one briefly so a momentary
+    // detection dip doesn't blink the readout off.
+    chordCand = ''
+    chordCandAge = 0
+    if (displayedChord) {
+      chordMissAge += lastDt
+      if (chordMissAge >= CHORD_RELEASE_SEC) {
+        displayedChord = null
+        chordMissAge = 0
+      }
+    }
+  }
+
+  if (displayedChord) {
+    keyChroma[displayedChord.root] += CHORD_KEY_ROOT * lastDt
+    for (const iv of displayedChord.type.ivals) {
+      keyChroma[(displayedChord.root + iv) % 12] += CHORD_KEY_TONE * lastDt
+    }
+  }
+}
+
+function renderChord() {
+  if (!displayedChord) {
+    if (chord.value !== null) chord.value = null
+    return
+  }
+  const name = displayedChord.name
+  const roman = displayedKey
+    ? romanNumeral(displayedKey.tonic, displayedChord.root, displayedChord.type)
+    : ''
+  if (!chord.value || chord.value.name !== name || chord.value.roman !== roman) {
+    chord.value = { name, roman }
+  }
+}
+
+// Re-estimate the key from the long profile, but switch only when a different key
+// has clearly led for a sustained spell (hysteresis) — this is what makes the
+// readout sticky. An ambiguous moment leaves the current key untouched.
+function updateKey() {
+  const k = estimateKey(keyChroma)
+  if (!k || k.total < KEY_MIN_TOTAL) {
+    displayedKey = null
+    keyCand = ''
+    keyCandAge = 0
+    setKey(null)
+    return
+  }
+  if (k.score < KEY_MIN_SCORE) return // too ambiguous to change anything — hold
+
+  if (!displayedKey) {
+    commitKey(k)
+    return
+  }
+  if (k.label === displayedKey.label) {
+    keyCand = '' // current key reaffirmed
+    keyCandAge = 0
+    return
+  }
+  if (keyCand !== k.label) {
+    keyCand = k.label
+    keyCandAge = 0
+  } else {
+    keyCandAge += lastDt
+  }
+  if (keyCandAge >= KEY_SWITCH_SEC && k.confidence >= KEY_SWITCH_MARGIN) {
+    commitKey(k)
+  }
+}
+
+function commitKey(k) {
+  displayedKey = { tonic: k.tonic, mode: k.mode, label: k.label, name: k.name }
+  keyCand = ''
+  keyCandAge = 0
+  setKey(k.name)
+}
+
+function setKey(name) {
+  if (musicKey.value !== name) musicKey.value = name
 }
 
 function draw() {
@@ -323,6 +549,9 @@ function draw() {
     domKey = ''
     dominant.value = null
   }
+  // Update the key + chord guesses (running only; frozen while paused).
+  if (props.isRunning && buf) analyzeHarmony(sr, fft)
+
   pianoKeys = [] // recomputed below in landscape; empty => taps are ignored
   if (landscape && pianoH > 0) {
     drawPiano(plot.bottom + labelH, h, xOf, fMax, domMidi)
@@ -539,6 +768,17 @@ watch(
       smooth.fill(FLOOR)
       lastFrameT = 0
       resetRecentWindow()
+      keyChroma.fill(0)
+      chordChroma.fill(0)
+      displayedKey = null
+      displayedChord = null
+      keyCand = ''
+      keyCandAge = 0
+      chordCand = ''
+      chordCandAge = 0
+      chordMissAge = 0
+      musicKey.value = null
+      chord.value = null
     }
   }
 )
@@ -579,13 +819,28 @@ onBeforeUnmount(() => {
         @pointercancel="onPointerUp"
       ></canvas>
 
-      <!-- Dominant-note readout (top-left over the graph) -->
+      <!-- Dominant-note + key readout (top-left over the graph) -->
       <div class="hud-readout">
-        <template v-if="dominant">
-          <span class="note">{{ dominant.name }}</span>
-          <span class="hz">{{ dominant.freq }} Hz</span>
-        </template>
-        <span v-else class="note dim">—</span>
+        <div class="note-row">
+          <template v-if="dominant">
+            <span class="note">{{ dominant.name }}</span>
+            <span class="hz">{{ dominant.freq }} Hz</span>
+          </template>
+          <span v-else class="note dim">—</span>
+        </div>
+        <div class="key-row">
+          <span class="key-tag">Key</span>
+          <span v-if="musicKey" class="key-name">{{ musicKey }}</span>
+          <span v-else class="key-name dim">—</span>
+        </div>
+        <div v-if="chordEnabled" class="key-row">
+          <span class="key-tag">Chord</span>
+          <template v-if="chord">
+            <span class="key-name">{{ chord.name }}</span>
+            <span v-if="chord.roman" class="chord-roman">{{ chord.roman }}</span>
+          </template>
+          <span v-else class="key-name dim">—</span>
+        </div>
       </div>
 
       <!-- Actions (top-right) -->
@@ -630,10 +885,15 @@ canvas {
   top: 16px;
   left: 56px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   pointer-events: none;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+.note-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .note {
   font-size: 34px;
@@ -647,6 +907,36 @@ canvas {
 .hz {
   font-size: 14px;
   opacity: 0.7;
+}
+.key-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.key-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+.key-name {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1;
+}
+.key-name.dim {
+  opacity: 0.4;
+}
+.chord-roman {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.chord-roman::before {
+  content: '·';
+  margin: 0 5px 0 1px;
+  opacity: 0.6;
 }
 
 .hud-actions {
