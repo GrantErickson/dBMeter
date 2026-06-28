@@ -70,21 +70,44 @@ const chordEnabled = computed(
 const keyChroma = new Float32Array(12) // long memory -> sticky key
 const chordChroma = new Float32Array(12) // short memory -> "now" chord
 const KEY_TAU = 20 // s, how far back the key estimate remembers (sticky)
-const CHORD_TAU = 0.5 // s, chord memory — short so it tracks what's playing now
+const CHORD_TAU = 0.3 // s, chord memory — short so it tracks what's playing now
 const DYN_RANGE = 24 // dB below the loudest note still counted toward harmony
 // Harmony only reads notes from ~E2 up: below that an FFT bin is wider than a
 // semitone, so low notes smear across pitch classes. Their pitch class still
 // reaches the chromagram via upper partials (which fold to the same class).
 const HARMONY_MIN_MIDI = 40
+// Harmonic reinforcement: a note's salience is boosted by energy at its octave,
+// octave+fifth and two-octaves partials (2nd/3rd/4th harmonics), so real played
+// fundamentals stand out over the chromagram and low roots are reinforced by
+// their better-resolved upper partials.
+const HARMONIC_OFFSETS = [12, 19, 24]
+const HARMONIC_WEIGHTS = [0.5, 0.3, 0.2]
+// Reused per-frame note buffers (avoid reallocating in the 60fps analysis loop).
+// mLo is always HARMONY_MIN_MIDI, so the note count never exceeds this.
+const MAX_NOTES = PIANO_MAX_MIDI - HARMONY_MIN_MIDI + 1
+const noteP = new Float64Array(MAX_NOTES) // linear power per note
+const noteDb = new Float64Array(MAX_NOTES) // -> dB
+const sal = new Float64Array(MAX_NOTES) // -> salience (dB above the cutoff)
+// Single-note rejection: count independent fundamentals (a chord has >= 3; one
+// note has 1, since its other apparent tones are just its own overtones).
+const CHORD_MIN_VOICES = 3
+const VOICE_MIN_FRAC = 0.2 // a note counts as a voice at this fraction of the loudest
+const VOICE_WINDOW = 24 // ...within 2 octaves of the lowest note (a chord's span;
+//                         a single note's tell-tale high partials sit above it)
+const HARMONIC_CLAIM_OFFSETS = [12, 19, 24, 28, 31, 34, 36] // partials 2..8
 const KEY_MIN_TOTAL = 5 // min accumulated energy before any key is shown
 const KEY_MIN_SCORE = 0.5 // min correlation before switching keys (filters noise)
 const KEY_SWITCH_SEC = 4 // a new key must lead this long before it's adopted
 const KEY_SWITCH_MARGIN = 0.02 // ...and lead the runner-up by at least this much
 const CHORD_MIN_SCORE = 0.7 // min template match before a chord is shown
-const CHORD_MIN_MARGIN = 0.015 // ...and lead over the runner-up chord
-const CHORD_TONE_FLOOR = 0.5 // each chord tone must reach this fraction of the
-//                              loudest pitch class — rejects single notes whose
-//                              harmonics (a major third / fifth up) fake a triad
+const CHORD_MIN_MARGIN = 0.02 // ...and lead over the runner-up chord (kept modest
+//                               so real 7th chords aren't dropped; CHORD_MIN_VOICES
+//                               is what rejects single notes)
+const CHORD_TONE_FLOOR = 0.18 // each chord tone must reach this fraction of the
+//                               loudest pitch class (filters weak / partial chords)
+const CHORD_THIRD_RATIO = 1.3 // a triad's third must beat the opposite third by
+//                               this much — the maj-vs-min decision, robust to a
+//                               weak third
 const CHORD_SWITCH_SEC = 0.3 // a different chord must hold this long to replace one
 const CHORD_RELEASE_SEC = 0.4 // ...and a shown chord lingers this long once it drops
 const CHORD_KEY_ROOT = 8 // per-second weight a detected chord's root adds to key
@@ -101,6 +124,7 @@ let displayedChord = null // chord object ({ root, type, name, ... }) currently 
 let chordCand = '' // name of a challenger chord awaiting the switch delay
 let chordCandAge = 0 // s the challenger has held
 let chordMissAge = 0 // s the shown chord has gone undetected (release hold)
+let voiceCount = 0 // independent fundamentals in the latest frame
 
 // Tap / slide to play the keyboard.
 let playCtx = null // dedicated output context (created on first press)
@@ -204,11 +228,12 @@ function updatePeaks() {
 }
 
 // Fold this frame's spectrum into both pitch-class profiles, then re-estimate the
-// chord and key. Each note's semitone band is summed to a dB level; notes within
-// DYN_RANGE of the loudest add salience (dB above the cutoff) to their pitch
-// class, so prominent pitches drive the estimate and broadband noise is ignored.
+// chord and key. Each FFT bin is binned to its nearest note; notes within
+// DYN_RANGE of the loudest contribute salience (dB above the cutoff), reinforced
+// by their harmonic partials, to their pitch class — so real fundamentals drive
+// the estimate while broadband noise and stray overtones are suppressed.
 function analyzeHarmony(sr, fft) {
-  if (!smooth) return
+  if (!buf) return
   const dKey = Math.exp(-lastDt / KEY_TAU)
   const dChord = Math.exp(-lastDt / CHORD_TAU)
   for (let i = 0; i < 12; i++) {
@@ -219,34 +244,96 @@ function analyzeHarmony(sr, fft) {
   const fMax = Math.min(20000, sr / 2)
   const mLo = Math.max(HARMONY_MIN_MIDI, Math.ceil(freqToMidi(F_MIN)))
   const mHi = Math.min(PIANO_MAX_MIDI, Math.floor(freqToMidi(fMax)))
-  const nBins = smooth.length
+  if (mHi < mLo) return // degenerate (sub-audio) sample rate: nothing to analyse
+  const nBins = buf.length
+  const nNotes = mHi - mLo + 1
 
+  // Per-note level from the *instantaneous* spectrum (buf), not the bar buffer
+  // (smooth) — smooth's slow release would blend the previous chord into this one.
+  // Assign each FFT bin to its single nearest note rather than summing an
+  // outward-rounded band per note: in the low register a semitone is barely one
+  // bin wide, so overlapping bands would smear a note into its chromatic neighbour.
+  for (let k = 0; k < nNotes; k++) noteP[k] = 0
+  const loBin = Math.max(1, Math.floor((midiToFreq(mLo - 0.5) * fft) / sr))
+  const hiBin = Math.min(nBins - 1, Math.ceil((midiToFreq(mHi + 0.5) * fft) / sr))
+  for (let i = loBin; i <= hiBin; i++) {
+    const m = Math.round(freqToMidi((i * sr) / fft))
+    if (m >= mLo && m <= mHi) noteP[m - mLo] += Math.pow(10, buf[i] / 10)
+  }
   let maxDb = FLOOR
-  const noteDb = []
-  for (let m = mLo; m <= mHi; m++) {
-    let b0 = Math.max(1, Math.floor((midiToFreq(m - 0.5) * fft) / sr))
-    let b1 = Math.min(nBins - 1, Math.ceil((midiToFreq(m + 0.5) * fft) / sr))
-    if (b1 < b0) b1 = b0
-    let p = 0
-    for (let i = b0; i <= b1; i++) p += Math.pow(10, smooth[i] / 10)
-    const db = 10 * Math.log10(p + 1e-20)
-    noteDb.push(db)
+  for (let k = 0; k < nNotes; k++) {
+    const db = 10 * Math.log10(noteP[k] + 1e-20)
+    noteDb[k] = db
     if (db > maxDb) maxDb = db
   }
+  voiceCount = 0
   if (maxDb > FLOOR + 8) {
+    // Salience of each note = dB above the cutoff (prominent notes only).
     const cut = maxDb - DYN_RANGE
-    for (let idx = 0; idx < noteDb.length; idx++) {
-      if (noteDb[idx] < cut) continue
-      const sal = (noteDb[idx] - cut) * lastDt
+    for (let k = 0; k < nNotes; k++) {
+      const s = noteDb[k] - cut
+      sal[k] = s > 0 ? s : 0
+    }
+    voiceCount = countVoices(nNotes)
+    // Fold to pitch classes, reinforcing each present fundamental with the
+    // salience at its harmonic partials so real notes outweigh stray overtones.
+    // (Notes in the top octave get less reinforcement — their partials fall above
+    // mHi — so detection there quietly reverts to the unreinforced behaviour.)
+    for (let idx = 0; idx < nNotes; idx++) {
+      if (sal[idx] <= 0) continue
+      let contribution = sal[idx]
+      for (let h = 0; h < HARMONIC_OFFSETS.length; h++) {
+        const j = idx + HARMONIC_OFFSETS[h]
+        if (j < nNotes) contribution += HARMONIC_WEIGHTS[h] * sal[j]
+      }
+      const amount = contribution * lastDt
       const pc = (((mLo + idx) % 12) + 12) % 12
-      keyChroma[pc] += sal
-      chordChroma[pc] += sal
+      keyChroma[pc] += amount
+      chordChroma[pc] += amount
     }
   }
 
   updateChord() // also boosts keyChroma with the detected chord's tones
   updateKey()
   renderChord() // after both, so the Roman numeral reflects the latest key
+}
+
+// Count independent fundamentals within ~2 octaves of the lowest prominent note,
+// reading the per-note salience (sal[0..n-1]). Process loudest-first; a note is a
+// new fundamental unless it sits at a harmonic offset (±1 semitone) of an already-
+// counted louder note. A chord's third/fifth are not harmonic offsets of the root,
+// so a triad -> 3; a single note (even a bright one) -> 1, since all of its energy
+// is its own overtones. The window excludes a single note's high partials (5th and
+// up, which sit more than 2 octaves above it) while spanning a normal chord voicing.
+function countVoices(n) {
+  let maxSal = 0
+  for (let i = 0; i < n; i++) if (sal[i] > maxSal) maxSal = sal[i]
+  if (maxSal <= 0) return 0
+  const thresh = VOICE_MIN_FRAC * maxSal
+  let low = -1
+  for (let i = 0; i < n; i++) {
+    if (sal[i] >= thresh) {
+      low = i
+      break
+    }
+  }
+  if (low < 0) return 0
+  const hi = Math.min(n - 1, low + VOICE_WINDOW)
+  const order = []
+  for (let i = low; i <= hi; i++) if (sal[i] >= thresh) order.push(i)
+  order.sort((a, b) => sal[b] - sal[a])
+  const claimed = new Set()
+  let count = 0
+  for (const idx of order) {
+    if (claimed.has(idx)) continue
+    count++
+    for (const off of HARMONIC_CLAIM_OFFSETS) {
+      claimed.add(idx + off - 1)
+      claimed.add(idx + off)
+      claimed.add(idx + off + 1)
+    }
+  }
+  return count
 }
 
 // Decide the currently-sounding chord from the short-window profile and, when one
@@ -266,15 +353,26 @@ function updateChord() {
   for (let i = 0; i < 12; i++) if (chordChroma[i] > maxPC) maxPC = chordChroma[i]
   const c = estimateChord(chordChroma, level)
   let ok = false
-  if (c && c.score >= CHORD_MIN_SCORE && c.confidence >= CHORD_MIN_MARGIN) {
-    // Every chord tone must be meaningfully present — this rejects a single loud
-    // note whose harmonics merely imply a (major) chord.
+  // voiceCount (this frame) must show a real chord, not a single note's overtones.
+  if (c && voiceCount >= CHORD_MIN_VOICES && c.score >= CHORD_MIN_SCORE && c.confidence >= CHORD_MIN_MARGIN) {
+    // Every chord tone must be meaningfully present (filters noise/partial chords).
     let minTone = Infinity
     for (const iv of c.type.ivals) {
       const v = chordChroma[(c.root + iv) % 12] / maxPC
       if (v < minTone) minTone = v
     }
     ok = minTone >= CHORD_TONE_FLOOR
+    // For chords with a major/minor third, that third must clearly beat the
+    // opposite third — the maj-vs-min call, robust to a weak third.
+    if (ok) {
+      const third = c.type.ivals.includes(4) ? 4 : c.type.ivals.includes(3) ? 3 : -1
+      if (third >= 0) {
+        const other = third === 4 ? 3 : 4
+        const chosen = chordChroma[(c.root + third) % 12]
+        const opposite = chordChroma[(c.root + other) % 12]
+        if (chosen < CHORD_THIRD_RATIO * opposite) ok = false
+      }
+    }
   }
 
   if (ok) {

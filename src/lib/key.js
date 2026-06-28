@@ -108,6 +108,15 @@ const CHORD_SETS = {
 // templates, so several roots tie and `confidence` collapses toward 0 — the
 // caller's margin gate then declines to name them rather than pick an arbitrary
 // root. That's intentional: a guessed-wrong root is worse than showing nothing.
+// Per-interval weight in the template: down-weight the ever-present root and
+// up-weight the third (the quiet tone that decides major vs minor), so the
+// discriminating tones carry more of the match.
+function intervalWeight(iv) {
+  if (iv === 0) return 0.7 // root
+  if (iv === 3 || iv === 4) return 1.3 // third
+  return 1.0 // fifth / seventh / sus
+}
+
 export function estimateChord(chroma, level) {
   const set = CHORD_SETS[level] || CHORD_SETS.triads
   let norm = 0
@@ -120,8 +129,13 @@ export function estimateChord(chroma, level) {
   for (let root = 0; root < 12; root++) {
     for (const type of set) {
       let dot = 0
-      for (const iv of type.ivals) dot += chroma[(root + iv) % 12]
-      const score = dot / (norm * Math.sqrt(type.ivals.length))
+      let wNorm = 0
+      for (const iv of type.ivals) {
+        const w = intervalWeight(iv)
+        dot += chroma[(root + iv) % 12] * w
+        wNorm += w * w
+      }
+      const score = dot / (norm * Math.sqrt(wNorm))
       const cand = { root, type, score }
       if (!best || score > best.score) {
         second = best
