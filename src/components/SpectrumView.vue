@@ -44,6 +44,7 @@ let smooth = null // bars: fast attack, slow release ("fade out")
 let peakAll = null // max since cleared
 let buckets = null // Array(NUM_BUCKETS) of per-bin max
 let peak15 = null // max across all buckets (the "recent peak")
+let peak15Disp = null // recent peak as drawn: tracks peak15 up instantly, slides down
 let curBucket = 0
 let bucketStart = 0
 let prevWinSec = -1 // detects a live change to the recent-peak window
@@ -154,6 +155,7 @@ function allocate(n) {
 function resetPeaks(n) {
   peakAll = new Float32Array(n).fill(FLOOR)
   peak15 = new Float32Array(n).fill(FLOOR)
+  peak15Disp = new Float32Array(n).fill(FLOOR)
   buckets = Array.from({ length: NUM_BUCKETS }, () =>
     new Float32Array(n).fill(FLOOR)
   )
@@ -170,6 +172,7 @@ function resetRecentWindow() {
   if (!buckets) return
   for (const bk of buckets) bk.fill(FLOOR)
   peak15.fill(FLOOR)
+  peak15Disp.fill(FLOOR)
   curBucket = 0
   bucketStart = performance.now()
 }
@@ -224,6 +227,12 @@ function updatePeaks() {
     } else if (cur[i] > peak15[i]) {
       peak15[i] = cur[i]
     }
+    // Displayed recent peak: jump up with a fresh peak, but ease down (don't
+    // snap) when the window expires and peak15 drops, so the white line slides.
+    peak15Disp[i] =
+      peak15[i] >= peak15Disp[i]
+        ? peak15[i]
+        : peak15Disp[i] + release * (peak15[i] - peak15Disp[i])
   }
 }
 
@@ -612,7 +621,7 @@ function draw() {
       for (let i = b0; i <= b1; i++) {
         pCur += Math.pow(10, smooth[i] / 10)
         pAll += Math.pow(10, peakAll[i] / 10)
-        pRec += Math.pow(10, peak15[i] / 10)
+        pRec += Math.pow(10, peak15Disp[i] / 10)
         if (smooth[i] > domVal) {
           domVal = smooth[i]
           domBin = i
@@ -661,13 +670,30 @@ function draw() {
   ctx.strokeRect(plot.left, plot.top, plot.w, plot.h)
 }
 
+// Draw the peak envelope as a smooth curve rather than straight segments. Each
+// span is a quadratic that passes through the midpoint of consecutive points
+// using the point itself as the control handle, so corners are rounded off and
+// the line reads as a continuous curve instead of a jagged polyline.
 function drawEnvelope(pts, color, width) {
   if (pts.length < 2) return
   ctx.strokeStyle = color
   ctx.lineWidth = width
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
   ctx.beginPath()
   ctx.moveTo(pts[0][0], pts[0][1])
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1])
+  if (pts.length === 2) {
+    ctx.lineTo(pts[1][0], pts[1][1])
+  } else {
+    let i
+    for (i = 1; i < pts.length - 2; i++) {
+      const xc = (pts[i][0] + pts[i + 1][0]) / 2
+      const yc = (pts[i][1] + pts[i + 1][1]) / 2
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], xc, yc)
+    }
+    // Final span: curve through the last two points (control = second-to-last).
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
+  }
   ctx.stroke()
 }
 
