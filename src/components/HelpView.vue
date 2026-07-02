@@ -168,13 +168,20 @@ const isStandalone =
             <b>Crackle</b>.
           </li>
           <li>
-            For a Wave, pick a <b>waveform</b> (sine, square, saw and more) and
-            a <b>frequency</b> — type it in, or tap a key on the piano
-            keyboard. The <b>‹ ›</b> buttons shift the keyboard by an octave.
+            For a Wave, pick a <b>waveform</b> — basic shapes (sine, square,
+            saw …) or instruments (trumpet, violin, flute, sax …) — and a
+            <b>frequency</b>: type it in, or tap a key on the piano keyboard.
+            The <b>‹ ›</b> buttons shift the keyboard by an octave.
+          </li>
+          <li>
+            Struck instruments (<b>harp, music box, marimba, timpani,
+            bell</b>) ring and fade naturally, repeating on their own rhythm
+            while a note is held or the generator plays; the others sustain.
           </li>
           <li>
             While a Wave plays, tapping keys <b>retunes</b> the tone; when it's
-            stopped, keys play a piano-like note instead.
+            stopped, keys audition the chosen waveform (or a piano-like note
+            for the noise types).
           </li>
           <li>
             The signal <b>keeps playing while you switch tabs</b> — try

@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onBeforeUnmount } from 'vue'
-import { GEN_TYPES, WAVEFORMS } from '../lib/generator.js'
+import { GEN_TYPES, WAVEFORM_GROUPS } from '../lib/generator.js'
 import { freqToMidi, noteName, PIANO_MIN_MIDI, PIANO_MAX_MIDI } from '../lib/notes.js'
 import { createPianoVoice } from '../lib/pianoVoice.js'
+import { createInstrumentVoice } from '../lib/instrumentVoice.js'
 import PianoKeyboard from './PianoKeyboard.vue'
 
 // Tone tab: a signal generator (tone or coloured noise) plus a playable piano
@@ -30,17 +31,23 @@ const noteLabel = computed(() => {
   return noteName(nearest) + (cents ? ` ${cents > 0 ? '+' : ''}${cents}¢` : '')
 })
 
-// Keys retune a running tone (you hear the generator glide, not the piano
-// voice); otherwise they play the tap piano voice. Either way the key's pitch
-// lands in the frequency box.
+// Keys retune a running tone (you hear the generator glide or re-strike, not
+// a separate voice). Otherwise they audition the selected instrument — held
+// keys sustain or auto-repeat as the timbre dictates — falling back to the
+// simple piano voice for noise types, whose keys have no pitch to set. Either
+// way the key's pitch lands in the frequency box.
 const voice = createPianoVoice()
+const instVoice = createInstrumentVoice()
 
-function onNote({ midi, freq }) {
+function onNote({ midi, freq, slide }) {
   props.settings.tone.freq = Math.round(freq * 10) / 10
-  if (!(playing.value && isWave.value)) voice.change(midi)
+  if (playing.value && isWave.value) return
+  if (isWave.value) instVoice.play(freq, props.settings.tone.waveform, slide)
+  else voice.change(midi)
 }
 
 function onRelease() {
+  instVoice.release()
   voice.release()
 }
 
@@ -49,7 +56,9 @@ function togglePlay() {
 }
 
 onBeforeUnmount(() => {
-  voice.release() // the generator deliberately keeps playing across tabs
+  // the generator deliberately keeps playing across tabs; only tap voices end
+  instVoice.release()
+  voice.release()
 })
 </script>
 
@@ -70,9 +79,11 @@ onBeforeUnmount(() => {
       <div v-if="isWave" class="row">
         <label for="gen-wf">Waveform</label>
         <select id="gen-wf" class="sel" v-model="settings.tone.waveform">
-          <option v-for="w in WAVEFORMS" :key="w.value" :value="w.value">
-            {{ w.label }}
-          </option>
+          <optgroup v-for="g in WAVEFORM_GROUPS" :key="g.label" :label="g.label">
+            <option v-for="w in g.items" :key="w.value" :value="w.value">
+              {{ w.label }}
+            </option>
+          </optgroup>
         </select>
       </div>
 
@@ -114,7 +125,8 @@ onBeforeUnmount(() => {
         Keeps playing while you switch tabs — watch it live on the Spectrum tab.
       </p>
       <p v-else-if="isWave" class="hint">
-        Tap a key to set the frequency. While playing, keys retune the tone.
+        Keys audition the waveform and set the frequency — hold to sustain or
+        repeat. While playing, keys retune the tone.
       </p>
       <p v-else class="hint">
         Noise has no pitch — the keys just play their own note.
@@ -178,6 +190,13 @@ label {
   border-radius: 8px;
   padding: 9px 10px;
   min-width: 150px;
+}
+/* The popup list doesn't inherit the field's translucent styling — without
+   explicit solid colours it renders near-invisible text on some platforms. */
+.sel option,
+.sel optgroup {
+  background: var(--panel);
+  color: var(--fg);
 }
 .notechip {
   font-size: 13px;

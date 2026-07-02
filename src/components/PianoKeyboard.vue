@@ -122,9 +122,11 @@ function keyAt(e) {
   )
 }
 
-function press(midi) {
+// slide distinguishes a fresh press from gliding onto a key mid-hold, so the
+// parent can retrigger vs retune its voice appropriately.
+function press(midi, slide) {
   pressed = midi
-  emit('note', { midi, freq: midiToFreq(midi) })
+  emit('note', { midi, freq: midiToFreq(midi), slide })
   draw()
 }
 
@@ -132,7 +134,7 @@ function onPointerDown(e) {
   const hit = keyAt(e)
   if (!hit) return
   sliding = true
-  press(hit.midi)
+  press(hit.midi, false)
   // Capture so a slide keeps tracking even if it strays off the keys.
   try {
     canvas.value.setPointerCapture(e.pointerId)
@@ -144,7 +146,7 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   if (!sliding) return
   const hit = keyAt(e)
-  if (hit && hit.midi !== pressed) press(hit.midi)
+  if (hit && hit.midi !== pressed) press(hit.midi, true)
 }
 
 function onPointerUp(e) {
