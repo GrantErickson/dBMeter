@@ -159,6 +159,31 @@ const isStandalone =
         </ul>
       </AccordionSection>
 
+      <AccordionSection title="Tone generator" :open="isOpen('tone')" @toggle="toggle('tone')">
+        <ul>
+          <li>
+            The <b>Tone</b> tab plays test signals through the speaker: a
+            tunable <b>Wave</b> or coloured noise — <b>White</b>, <b>Pink</b>,
+            <b>Brown</b>, <b>Blue</b>, <b>Violet</b>, <b>Grey</b> or
+            <b>Crackle</b>.
+          </li>
+          <li>
+            For a Wave, pick a <b>waveform</b> (sine, square, saw and more) and
+            a <b>frequency</b> — type it in, or tap a key on the piano
+            keyboard. The <b>‹ ›</b> buttons shift the keyboard by an octave.
+          </li>
+          <li>
+            While a Wave plays, tapping keys <b>retunes</b> the tone; when it's
+            stopped, keys play a piano-like note instead.
+          </li>
+          <li>
+            The signal <b>keeps playing while you switch tabs</b> — try
+            watching it on the Spectrum analyser, or use a steady tone or noise
+            as the reference sound when calibrating.
+          </li>
+        </ul>
+      </AccordionSection>
+
       <AccordionSection title="Auto mode vs. calibrated" :open="isOpen('autocal')" @toggle="toggle('autocal')">
         <ul>
           <li>

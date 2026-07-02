@@ -19,6 +19,12 @@ const tabs = [
     ],
   },
   {
+    key: 'tone',
+    label: 'Tone',
+    // Two periods of a sine wave.
+    paths: ['M3 12c1.5-8 3-8 4.5 0c1.5 8 3 8 4.5 0c1.5-8 3-8 4.5 0c1.5 8 3 8 4.5 0'],
+  },
+  {
     key: 'settings',
     label: 'Settings',
     paths: [

@@ -32,6 +32,13 @@ export const DEFAULT_SETTINGS = {
   spectrumDecaySec: 2, // spectrum tab: bar/note fade-out (release) time, seconds
   spectrumBarsPerNote: 1, // spectrum tab: bar resolution, 1–4 bars per semitone
   spectrumChordLevel: 'triads', // spectrum tab: chord vocabulary 'off'|'triads'|'sevenths'|'full'
+  // Tone tab's generator (see lib/generator.js for the type/waveform lists).
+  tone: {
+    type: 'wave', // 'wave' | a noise colour ('white'|'pink'|'brown'|...)
+    waveform: 'sine', // oscillator shape, applies when type === 'wave'
+    freq: 440, // Hz, applies when type === 'wave'
+    volume: 0.5, // 0..1
+  },
   // Up to MAX_FREQ_TRACKS entries: { id, freq (Hz), color, enabled }.
   // Always recorded by the meter; only drawn when freqOverlayOn and enabled.
   freqTracks: structuredClone(DEFAULT_FREQ_TRACKS),

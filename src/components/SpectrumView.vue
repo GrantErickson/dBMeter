@@ -11,6 +11,7 @@ import {
   PIANO_MAX_MIDI,
 } from '../lib/notes.js'
 import { estimateKey, estimateChord, romanNumeral } from '../lib/key.js'
+import { createPianoVoice } from '../lib/pianoVoice.js'
 import HudControls from './HudControls.vue'
 import { resizeCanvasToDpr } from '../lib/canvas.js'
 
@@ -127,11 +128,11 @@ let chordCandAge = 0 // s the challenger has held
 let chordMissAge = 0 // s the shown chord has gone undetected (release hold)
 let voiceCount = 0 // independent fundamentals in the latest frame
 
-// Tap / slide to play the keyboard.
-let playCtx = null // dedicated output context (created on first press)
+// Tap / slide to play the keyboard (through the shared output voice — the
+// mic capture context is never connected to the speakers).
+const voice = createPianoVoice()
 let pianoKeys = [] // hit-test rects, rebuilt each frame by drawPiano
 let pressedMidi = null // the key currently held / slid to (highlighted)
-let voice = null // the single sounding voice, or null
 let sliding = false // a press is in progress (track pointer moves)
 
 // Distance of the bottom legend pills from the bottom edge: lifted above the
@@ -746,87 +747,6 @@ function drawPiano(top, bottom, xOf, fMax, domMidi) {
   }
 }
 
-// The keyboard plays through a dedicated output context (the mic context is
-// never connected to the speakers), created lazily on the first press — the
-// user gesture browsers require to start audio output.
-function ensurePlayCtx() {
-  if (!playCtx) {
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    playCtx = new Ctx()
-  }
-  if (playCtx.state === 'suspended') playCtx.resume().catch(() => {})
-  return playCtx
-}
-
-// Shape a freshly "struck" key on the current voice: a percussive (hammer)
-// attack, a quick initial decay then a long ringing tail, plus a brightness
-// sweep that mellows — roughly a piano's amplitude + timbre envelope.
-function strike(midi, t) {
-  const f = midiToFreq(midi)
-  voice.osc1.frequency.setValueAtTime(f, t)
-  voice.osc2.frequency.setValueAtTime(f * 2, t)
-  const g = voice.env.gain
-  g.cancelScheduledValues(t)
-  g.setValueAtTime(0.0001, t)
-  g.exponentialRampToValueAtTime(0.3, t + 0.005)
-  g.exponentialRampToValueAtTime(0.08, t + 0.35)
-  g.exponentialRampToValueAtTime(0.0002, t + 3)
-  const lp = voice.filter.frequency
-  lp.cancelScheduledValues(t)
-  lp.setValueAtTime(Math.min(9000, f * 9), t)
-  lp.exponentialRampToValueAtTime(Math.max(700, f * 2.5), t + 0.5)
-}
-
-function startVoice(midi) {
-  const ac = ensurePlayCtx()
-  const osc1 = ac.createOscillator()
-  osc1.type = 'triangle'
-  const osc2 = ac.createOscillator()
-  osc2.type = 'sine' // octave partial adds a little brightness/body
-  const partial2 = ac.createGain()
-  partial2.gain.value = 0.35
-  const filter = ac.createBiquadFilter()
-  filter.type = 'lowpass'
-  filter.Q.value = 0.7
-  const env = ac.createGain()
-  env.gain.value = 0.0001
-  osc1.connect(env)
-  osc2.connect(partial2).connect(env)
-  env.connect(filter).connect(ac.destination)
-  voice = { osc1, osc2, env, filter }
-  osc1.start()
-  osc2.start()
-  strike(midi, ac.currentTime)
-}
-
-// Sound a note, retriggering the existing voice when sliding to a new key.
-function changeNote(midi) {
-  try {
-    if (!voice) startVoice(midi)
-    else strike(midi, playCtx.currentTime)
-  } catch {
-    /* output unavailable */
-  }
-}
-
-// Let the current note ring out, then stop its oscillators.
-function releaseVoice() {
-  if (!voice || !playCtx) return
-  const v = voice
-  voice = null
-  try {
-    const t = playCtx.currentTime
-    const g = v.env.gain
-    g.cancelScheduledValues(t)
-    g.setValueAtTime(Math.max(0.0002, g.value), t)
-    g.exponentialRampToValueAtTime(0.0002, t + 0.25)
-    v.osc1.stop(t + 0.3)
-    v.osc2.stop(t + 0.3)
-  } catch {
-    /* ignore */
-  }
-}
-
 // Which key (if any) is under the pointer; black keys win since they're on top.
 function keyAt(e) {
   if (!pianoKeys.length || !canvas.value) return null
@@ -847,7 +767,7 @@ function onPointerDown(e) {
   if (!hit) return
   sliding = true
   pressedMidi = hit.midi
-  changeNote(hit.midi)
+  voice.change(hit.midi)
   // Capture so a slide keeps tracking even if it strays off the keys.
   try {
     canvas.value.setPointerCapture(e.pointerId)
@@ -861,7 +781,7 @@ function onPointerMove(e) {
   const hit = keyAt(e)
   if (hit && hit.midi !== pressedMidi) {
     pressedMidi = hit.midi
-    changeNote(hit.midi)
+    voice.change(hit.midi)
   }
 }
 
@@ -869,7 +789,7 @@ function onPointerUp(e) {
   if (!sliding) return
   sliding = false
   pressedMidi = null
-  releaseVoice()
+  voice.release()
   try {
     canvas.value.releasePointerCapture(e.pointerId)
   } catch {
@@ -918,15 +838,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf)
   if (ro) ro.disconnect()
-  releaseVoice()
-  if (playCtx) {
-    try {
-      playCtx.close()
-    } catch {
-      /* ignore */
-    }
-    playCtx = null
-  }
+  voice.release() // the shared output context stays open for other views
 })
 </script>
 

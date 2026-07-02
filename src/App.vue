@@ -8,6 +8,7 @@ import {
   onBeforeUnmount,
 } from "vue";
 import { useAudioMeter } from "./composables/useAudioMeter.js";
+import { useToneGenerator } from "./composables/useToneGenerator.js";
 import { computeCalibration } from "./lib/calibration.js";
 import { shouldIdlePause } from "./lib/idle.js";
 import {
@@ -23,6 +24,7 @@ import { freqTracksSig } from "./lib/freq.js";
 import TabBar from "./components/TabBar.vue";
 import MeterView from "./components/MeterView.vue";
 import SpectrumView from "./components/SpectrumView.vue";
+import ToneView from "./components/ToneView.vue";
 import ControlsPanel from "./components/ControlsPanel.vue";
 import CalibrationPanel from "./components/CalibrationPanel.vue";
 import SessionsPanel from "./components/SessionsPanel.vue";
@@ -80,6 +82,16 @@ function closeHelp() {
 }
 
 const meter = useAudioMeter();
+
+// Tone-tab signal generator. Owned here (not by the Tone view) so a playing
+// tone/noise keeps sounding while the user switches tabs — e.g. to watch it
+// on the Spectrum analyser.
+const toneGen = useToneGenerator();
+watch(
+  () => settings.tone,
+  () => toneGen.update({ ...settings.tone }),
+  { deep: true },
+);
 
 // Calibration actually applied to readings. In Auto mode we deliberately leave
 // readings uncalibrated (relative) and let the graph range auto-scale instead.
@@ -368,6 +380,13 @@ const showIdleResume = computed(
         :calibration="appliedCalibration"
         :is-running="meter.isRunning.value"
         @toggle-mic="toggleMic"
+      />
+
+      <!-- Tone / noise generator -->
+      <ToneView
+        v-else-if="activeTab === 'tone'"
+        :settings="settings"
+        :gen="toneGen"
       />
 
       <!-- Help / first-run guide -->
